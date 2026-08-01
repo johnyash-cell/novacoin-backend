@@ -189,14 +189,32 @@ Immutable money movement log.
 | `created_by_admin_user_id` | Nullable; set for admin-driven credits |
 | `created_at` | When applied |
 
-### 4.7 User (roles)
+### 4.7 User (customers — `users` table)
+
+Separate from admins. No role column.
 
 | Field | Meaning |
 |-------|---------|
-| existing auth fields | name, email, password |
-| `role` | `User` \| `Admin` (or boolean `is_admin` for v1) |
+| `first_name`, `last_name` | Profile name |
+| `email` | Unique login / Google email |
+| `password` | Nullable (null for Google-only accounts) |
+| `phone` | Optional |
+| `google_id` | Nullable unique Google subject |
+| `email_verified_at` | Set on Google login when Google marks email verified |
 
-Admin routes and actions require Admin role.
+Auth: JWT (`api` guard). Login via email/password or Google ID token (`POST /api/auth/google`).
+
+### 4.8 Admin (backoffice — `admins` table)
+
+| Field | Meaning |
+|-------|---------|
+| `first_name`, `last_name` | Profile name |
+| `email` | Unique login |
+| `password` | Required (email/password only — no Google) |
+| `phone` | Optional |
+| `is_super_admin` | One seeded super admin; API never creates another |
+
+Auth: JWT (`admin` guard). No public register; seeded super admin; any admin may create further admins.
 
 ---
 
@@ -246,11 +264,12 @@ User never sees other users’ investments or platform wallet private keys (we o
 - [ ] List PendingApproval investments → approve / reject
 - [ ] List AwaitingPayout investments → fund (credit UserWallet + ledger)
 - [ ] View user wallet balances and ledger
-- [ ] Authenticate as Admin
+- [x] Authenticate as Admin (JWT email/password)
+- [x] Create additional admins
 
 ## 8. User capabilities (v1 checklist)
 
-- [ ] Register / login
+- [x] Register / login (JWT email/password + Google ID token)
 - [ ] List active InvestmentPlans
 - [ ] List active SupportedCryptoWallets (public fields only)
 - [ ] Create Investment (pending)
@@ -287,7 +306,15 @@ mark Investment PaidOut
 
 Not implemented yet. Naming for future Laravel API:
 
-**User**
+**Auth (implemented)**
+
+- `POST /api/auth/register|login|google` · `POST /api/auth/logout|refresh` · `GET /api/auth/me`
+- `POST /api/admin/auth/login` · `POST /api/admin/auth/logout|refresh` · `GET /api/admin/auth/me`
+- `GET|POST /api/admin/admins`
+
+Auth mechanism: JWT (`php-open-source-saver/jwt-auth`), dual guards (`api` / `admin`). Users may use Google ID token exchange; admins email/password only.
+
+**User (investment domain — not implemented yet)**
 
 - `GET /api/investment-plans`
 - `GET /api/supported-crypto-wallets`
@@ -297,7 +324,7 @@ Not implemented yet. Naming for future Laravel API:
 - `GET /api/wallet`
 - `GET /api/wallet/ledger-entries`
 
-**Admin**
+**Admin (investment domain — not implemented yet)**
 
 - `POST|PUT|PATCH /api/admin/investment-plans...`
 - `POST|PUT|PATCH /api/admin/supported-crypto-wallets...`
@@ -306,8 +333,6 @@ Not implemented yet. Naming for future Laravel API:
 - `POST /api/admin/investments/{investment}/reject`
 - `GET /api/admin/investments?status=awaiting_payout`
 - `POST /api/admin/investments/{investment}/fund`
-
-Auth mechanism (Sanctum vs session) TBD at implementation.
 
 ---
 
@@ -321,11 +346,13 @@ Auth mechanism (Sanctum vs session) TBD at implementation.
 6. **Admin UI:** API-only for separate SPA, or Laravel Blade/Filament admin?
 7. **Maturity job:** auto-flip `Active` → `AwaitingPayout`, or compute “matured” from `matures_at` on read + admin fund gate?
 
+Resolved: auth = JWT + separate `users`/`admins` tables; Google for users only.
+
 ---
 
 ## 12. Implementation order (when coding starts)
 
-1. Auth + Admin/User role  
+1. ~~Auth + Admin/User role~~ (done: dual JWT tables + Google for users)
 2. SupportedCryptoWallet  
 3. InvestmentPlan  
 4. Investment create + admin approve/reject  

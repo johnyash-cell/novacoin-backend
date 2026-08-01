@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
+use Database\Factories\AdminFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,11 +10,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['first_name', 'last_name', 'email', 'password', 'phone', 'google_id', 'email_verified_at'])]
-#[Hidden(['password', 'remember_token', 'google_id'])]
-class User extends Authenticatable implements JWTSubject
+#[Fillable(['first_name', 'last_name', 'email', 'password', 'phone'])]
+#[Hidden(['password', 'remember_token'])]
+class Admin extends Authenticatable implements JWTSubject
 {
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<AdminFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -23,8 +23,8 @@ class User extends Authenticatable implements JWTSubject
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_super_admin' => 'boolean',
         ];
     }
 
@@ -39,17 +39,7 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims(): array
     {
         return [
-            'actor_type' => 'user',
+            'actor_type' => 'admin',
         ];
-    }
-
-    public function hasGoogleLinked(): bool
-    {
-        return filled($this->google_id);
-    }
-
-    public function hasPasswordSet(): bool
-    {
-        return filled($this->password);
     }
 }
