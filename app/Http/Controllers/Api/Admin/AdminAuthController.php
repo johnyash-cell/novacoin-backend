@@ -7,6 +7,7 @@ use App\Http\Requests\Api\Admin\LoginAdminRequest;
 use App\Http\Resources\AdminResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\Admin;
+use App\Services\Auth\RecordsAuthenticationLoginAttempt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -14,11 +15,20 @@ class AdminAuthController extends Controller
 {
     use RespondsWithApiEnvelope;
 
-    public function login(LoginAdminRequest $request): JsonResponse
-    {
-        $token = Auth::guard('admin')->attempt($request->only(['email', 'password']));
+    public function login(
+        LoginAdminRequest $request,
+        RecordsAuthenticationLoginAttempt $recordsAuthenticationLoginAttempt,
+    ): JsonResponse {
+        $credentials = $request->only(['email', 'password']);
+        $token = Auth::guard('admin')->attempt($credentials);
 
         if ($token === false) {
+            $recordsAuthenticationLoginAttempt->recordFailedAdminPasswordLogin(
+                email: $credentials['email'],
+                request: $request,
+                failureReason: 'Invalid email or password provided',
+            );
+
             return $this->errorResponse(
                 message: 'Invalid email or password provided',
                 statusCode: 401,
@@ -27,6 +37,11 @@ class AdminAuthController extends Controller
 
         /** @var Admin $admin */
         $admin = Auth::guard('admin')->user();
+
+        $recordsAuthenticationLoginAttempt->recordSuccessfulAdminPasswordLogin(
+            admin: $admin,
+            request: $request,
+        );
 
         return $this->successResponse(
             message: 'Admin logged in successfully',

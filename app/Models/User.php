@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
@@ -51,5 +52,19 @@ class User extends Authenticatable implements JWTSubject
     public function hasPasswordSet(): bool
     {
         return filled($this->password);
+    }
+
+    public function adminBackofficeAccount(): HasOne
+    {
+        return $this->hasOne(Admin::class, 'email', 'email');
+    }
+
+    public function hasAdminBackofficeAccess(): bool
+    {
+        if ($this->relationLoaded('adminBackofficeAccount')) {
+            return $this->adminBackofficeAccount !== null;
+        }
+
+        return $this->adminBackofficeAccount()->exists();
     }
 }

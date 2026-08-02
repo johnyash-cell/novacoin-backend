@@ -11,6 +11,7 @@ use App\Http\Resources\UserResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\User;
 use App\Services\Auth\GoogleUserAuthenticationService;
+use App\Services\Auth\RecordsAuthenticationLoginAttempt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,13 +37,21 @@ class UserAuthController extends Controller
         );
     }
 
-    public function login(LoginUserRequest $request): JsonResponse
-    {
+    public function login(
+        LoginUserRequest $request,
+        RecordsAuthenticationLoginAttempt $recordsAuthenticationLoginAttempt,
+    ): JsonResponse {
         $credentials = $request->only(['email', 'password']);
 
         $user = User::query()->where('email', $credentials['email'])->first();
 
         if ($user !== null && ! $user->hasPasswordSet()) {
+            $recordsAuthenticationLoginAttempt->recordFailedUserPasswordLogin(
+                email: $credentials['email'],
+                request: $request,
+                failureReason: 'This account uses Google sign-in. Please continue with Google.',
+            );
+
             return $this->errorResponse(
                 message: 'This account uses Google sign-in. Please continue with Google.',
                 statusCode: 401,
@@ -52,6 +61,12 @@ class UserAuthController extends Controller
         $token = Auth::guard('api')->attempt($credentials);
 
         if ($token === false) {
+            $recordsAuthenticationLoginAttempt->recordFailedUserPasswordLogin(
+                email: $credentials['email'],
+                request: $request,
+                failureReason: 'Invalid email or password provided',
+            );
+
             return $this->errorResponse(
                 message: 'Invalid email or password provided',
                 statusCode: 401,
@@ -60,6 +75,11 @@ class UserAuthController extends Controller
 
         /** @var User $authenticatedUser */
         $authenticatedUser = Auth::guard('api')->user();
+
+        $recordsAuthenticationLoginAttempt->recordSuccessfulUserPasswordLogin(
+            user: $authenticatedUser,
+            request: $request,
+        );
 
         return $this->successResponse(
             message: 'User logged in successfully',
@@ -75,12 +95,19 @@ class UserAuthController extends Controller
     public function google(
         GoogleLoginRequest $request,
         GoogleUserAuthenticationService $googleUserAuthenticationService,
+        RecordsAuthenticationLoginAttempt $recordsAuthenticationLoginAttempt,
     ): JsonResponse {
         try {
             $user = $googleUserAuthenticationService->authenticateWithIdToken(
                 $request->validated('id_token'),
             );
         } catch (InvalidGoogleIdTokenException $exception) {
+            $recordsAuthenticationLoginAttempt->recordFailedUserGoogleLogin(
+                email: 'unknown',
+                request: $request,
+                failureReason: $exception->getMessage(),
+            );
+
             return $this->errorResponse(
                 message: $exception->getMessage(),
                 statusCode: 401,
@@ -88,6 +115,11 @@ class UserAuthController extends Controller
         }
 
         $token = Auth::guard('api')->login($user);
+
+        $recordsAuthenticationLoginAttempt->recordSuccessfulUserGoogleLogin(
+            user: $user,
+            request: $request,
+        );
 
         return $this->successResponse(
             message: 'User logged in with Google successfully',

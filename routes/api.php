@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminAuthController;
+use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Auth\UserAuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,5 +37,12 @@ Route::prefix('admin')->group(function (): void {
     Route::middleware('auth:admin')->group(function (): void {
         Route::get('admins', [AdminController::class, 'index']);
         Route::post('admins', [AdminController::class, 'store']);
+
+        Route::get('users/filter-options', [AdminUserController::class, 'filterOptions']);
+        Route::apiResource('users', AdminUserController::class);
+        Route::post('users/{user}/promote-to-admin', [AdminUserController::class, 'promoteToAdmin']);
+
+        Route::get('authentication-login-logs/filter-options', [AdminAuthenticationLoginLogController::class, 'filterOptions']);
+        Route::get('authentication-login-logs', [AdminAuthenticationLoginLogController::class, 'index']);
     });
 });
