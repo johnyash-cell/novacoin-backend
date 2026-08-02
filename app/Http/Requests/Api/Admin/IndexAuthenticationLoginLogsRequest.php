@@ -20,6 +20,7 @@ class IndexAuthenticationLoginLogsRequest extends ApiFormRequest
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'sort_by' => ['sometimes', 'string', 'in:newest,oldest'],
+            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
             'actor_type' => ['sometimes', 'string', 'in:user,admin'],
             'login_method' => ['sometimes', 'string', 'in:password,google'],
             'was_successful' => ['sometimes', 'boolean'],

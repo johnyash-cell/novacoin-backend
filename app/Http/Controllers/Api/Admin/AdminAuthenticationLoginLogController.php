@@ -7,9 +7,11 @@ use App\Http\Requests\Api\Admin\IndexAuthenticationLoginLogsRequest;
 use App\Http\Resources\AuthenticationLoginLogResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\AuthenticationLoginLog;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class AdminAuthenticationLoginLogController extends Controller
 {
@@ -19,54 +21,26 @@ class AdminAuthenticationLoginLogController extends Controller
     {
         $validated = $request->validated();
 
-        $sortBy = $validated['sort_by'] ?? 'newest';
-        $perPage = $validated['per_page'] ?? 10;
+        $loginLogs = $this->buildLoginLogQuery($validated)->paginate(
+            $validated['per_page'] ?? 10,
+        );
 
-        $startDate = filled($validated['start_date'] ?? null)
-            ? Carbon::parse($validated['start_date'])->startOfDay()
-            : null;
-        $endDate = filled($validated['end_date'] ?? null)
-            ? Carbon::parse($validated['end_date'])->endOfDay()
-            : null;
+        return $this->loginLogIndexResponse($loginLogs, $validated);
+    }
 
-        $loginLogs = AuthenticationLoginLog::query()
-            ->when(
-                filled($validated['actor_type'] ?? null),
-                fn (Builder $query) => $query->where('actor_type', $validated['actor_type']),
-            )
-            ->when(
-                filled($validated['login_method'] ?? null),
-                fn (Builder $query) => $query->where('login_method', $validated['login_method']),
-            )
-            ->when(
-                array_key_exists('was_successful', $validated),
-                fn (Builder $query) => $query->where('was_successful', $validated['was_successful']),
-            )
-            ->when(
-                $startDate !== null && $endDate !== null,
-                fn (Builder $query) => $query->whereBetween('created_at', [$startDate, $endDate]),
-            )
-            ->orderBy('created_at', $sortBy === 'newest' ? 'desc' : 'asc')
-            ->paginate($perPage);
+    public function indexForUser(IndexAuthenticationLoginLogsRequest $request, User $user): JsonResponse
+    {
+        $validated = $request->validated();
 
-        return $this->successResponse(
-            message: 'Authentication login logs fetched successfully',
-            data: AuthenticationLoginLogResource::collection($loginLogs->items())->resolve(),
-            meta: [
-                'pagination' => [
-                    'current_page' => $loginLogs->currentPage(),
-                    'per_page' => $loginLogs->perPage(),
-                    'total' => $loginLogs->total(),
-                    'last_page' => $loginLogs->lastPage(),
-                ],
-                'filters' => [
-                    'actor_type' => $validated['actor_type'] ?? null,
-                    'login_method' => $validated['login_method'] ?? null,
-                    'was_successful' => $validated['was_successful'] ?? null,
-                    'start_date' => $validated['start_date'] ?? null,
-                    'end_date' => $validated['end_date'] ?? null,
-                ],
-            ],
+        $loginLogs = $this->applyUserDirectoryMemberLoginLogScope(
+            $this->buildLoginLogQuery($validated),
+            $user,
+        )->paginate($validated['per_page'] ?? 10);
+
+        return $this->loginLogIndexResponse(
+            loginLogs: $loginLogs,
+            validated: $validated,
+            scopedUser: $user,
         );
     }
 
@@ -147,5 +121,92 @@ class AdminAuthenticationLoginLogController extends Controller
                 'total_available_filters' => 4,
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function buildLoginLogQuery(array $validated): Builder
+    {
+        $sortBy = $validated['sort_by'] ?? 'newest';
+
+        $startDate = filled($validated['start_date'] ?? null)
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : null;
+        $endDate = filled($validated['end_date'] ?? null)
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : null;
+
+        return AuthenticationLoginLog::query()
+            ->when(
+                filled($validated['user_id'] ?? null),
+                function (Builder $query) use ($validated): void {
+                    $user = User::query()->findOrFail($validated['user_id']);
+
+                    $this->applyUserDirectoryMemberLoginLogScope($query, $user);
+                },
+            )
+            ->when(
+                filled($validated['actor_type'] ?? null),
+                fn (Builder $query) => $query->where('actor_type', $validated['actor_type']),
+            )
+            ->when(
+                filled($validated['login_method'] ?? null),
+                fn (Builder $query) => $query->where('login_method', $validated['login_method']),
+            )
+            ->when(
+                array_key_exists('was_successful', $validated),
+                fn (Builder $query) => $query->where('was_successful', $validated['was_successful']),
+            )
+            ->when(
+                $startDate !== null && $endDate !== null,
+                fn (Builder $query) => $query->whereBetween('created_at', [$startDate, $endDate]),
+            )
+            ->orderBy('created_at', $sortBy === 'newest' ? 'desc' : 'asc');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function loginLogIndexResponse(
+        LengthAwarePaginator $loginLogs,
+        array $validated,
+        ?User $scopedUser = null,
+    ): JsonResponse {
+        $filters = [
+            'user_id' => $scopedUser?->id ?? (isset($validated['user_id']) ? (int) $validated['user_id'] : null),
+        
+            'login_method' => $validated['login_method'] ?? null,
+            'was_successful' => $validated['was_successful'] ?? null,
+            'start_date' => $validated['start_date'] ?? null,
+            'end_date' => $validated['end_date'] ?? null,
+        ];
+
+        return $this->successResponse(
+            message: 'Authentication login logs fetched successfully',
+            data: AuthenticationLoginLogResource::collection($loginLogs->items())->resolve(),
+            meta: [
+                'pagination' => [
+                    'current_page' => $loginLogs->currentPage(),
+                    'per_page' => $loginLogs->perPage(),
+                    'total' => $loginLogs->total(),
+                    'last_page' => $loginLogs->lastPage(),
+                ],
+                'filters' => $filters,
+            ],
+        );
+    }
+
+    private function applyUserDirectoryMemberLoginLogScope(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $scopeQuery) use ($user): void {
+            $scopeQuery
+                ->where('email', $user->email)
+                ->orWhere(function (Builder $userActorQuery) use ($user): void {
+                    $userActorQuery
+                        ->where('actor_type', 'user')
+                        ->where('actor_id', $user->id);
+                });
+        });
     }
 }

@@ -39,6 +39,7 @@ Route::prefix('admin')->group(function (): void {
         Route::post('admins', [AdminController::class, 'store']);
 
         Route::get('users/filter-options', [AdminUserController::class, 'filterOptions']);
+        Route::get('users/{user}/authentication-login-logs', [AdminAuthenticationLoginLogController::class, 'indexForUser']);
         Route::apiResource('users', AdminUserController::class);
         Route::post('users/{user}/promote-to-admin', [AdminUserController::class, 'promoteToAdmin']);
 
