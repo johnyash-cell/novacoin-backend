@@ -139,6 +139,10 @@ class AdminAuthenticationLoginLogController extends Controller
 
         return AuthenticationLoginLog::query()
             ->when(
+                filled($validated['email'] ?? null),
+                fn (Builder $query) => $query->where('email', $validated['email']),
+            )
+            ->when(
                 filled($validated['user_id'] ?? null),
                 function (Builder $query) use ($validated): void {
                     $user = User::query()->findOrFail($validated['user_id']);
@@ -175,7 +179,8 @@ class AdminAuthenticationLoginLogController extends Controller
     ): JsonResponse {
         $filters = [
             'user_id' => $scopedUser?->id ?? (isset($validated['user_id']) ? (int) $validated['user_id'] : null),
-        
+            'email' => $scopedUser?->email ?? ($validated['email'] ?? null),
+            'actor_type' => $validated['actor_type'] ?? null,
             'login_method' => $validated['login_method'] ?? null,
             'was_successful' => $validated['was_successful'] ?? null,
             'start_date' => $validated['start_date'] ?? null,

@@ -206,3 +206,21 @@ it('includes admin backoffice login logs on a promoted user profile', function (
         ->assertJsonPath('meta.pagination.total', 2)
         ->assertJsonPath('meta.filters.user_id', $user->id);
 });
+
+it('filters authentication login logs by email for admin-only accounts', function () {
+    AuthenticationLoginLog::factory()->forAdminActor()->create([
+        'email' => 'superadmin@novacoin.test',
+    ]);
+    AuthenticationLoginLog::factory()->forAdminActor()->create([
+        'email' => 'other@example.com',
+    ]);
+
+    $token = auth('admin')->login(Admin::factory()->create());
+
+    $this->withHeader('Authorization', 'Bearer '.$token)
+        ->getJson('/api/admin/authentication-login-logs?email=superadmin@novacoin.test')
+        ->assertSuccessful()
+        ->assertJsonPath('meta.pagination.total', 1)
+        ->assertJsonPath('meta.filters.email', 'superadmin@novacoin.test')
+        ->assertJsonPath('data.0.email', 'superadmin@novacoin.test');
+});

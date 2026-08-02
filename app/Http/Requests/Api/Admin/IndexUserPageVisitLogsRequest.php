@@ -4,7 +4,7 @@ namespace App\Http\Requests\Api\Admin;
 
 use App\Http\Requests\Api\ApiFormRequest;
 
-class IndexAuthenticationLoginLogsRequest extends ApiFormRequest
+class IndexUserPageVisitLogsRequest extends ApiFormRequest
 {
     public function authorize(): bool
     {
@@ -20,11 +20,9 @@ class IndexAuthenticationLoginLogsRequest extends ApiFormRequest
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'sort_by' => ['sometimes', 'string', 'in:newest,oldest'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'email' => ['sometimes', 'string', 'email', 'max:255'],
-            'actor_type' => ['sometimes', 'string', 'in:user,admin'],
-            'login_method' => ['sometimes', 'string', 'in:password,google'],
-            'was_successful' => ['sometimes', 'boolean'],
+            'page_path' => ['sometimes', 'string', 'max:2048'],
             'start_date' => ['sometimes', 'nullable', 'date', 'date_format:Y-m-d', 'required_with:end_date'],
             'end_date' => ['sometimes', 'nullable', 'date', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
         ];
