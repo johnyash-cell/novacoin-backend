@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Activity\UserPageVisitController;
 use App\Http\Controllers\Api\Admin\AdminAuthController;
 use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
@@ -72,5 +73,10 @@ Route::prefix('admin')->group(function (): void {
         Route::get('notifications/filter-options', [AdminNotificationController::class, 'filterOptions']);
         Route::get('notifications', [AdminNotificationController::class, 'index']);
         Route::post('notifications', [AdminNotificationController::class, 'store']);
+
+        Route::get('investment-packages/filter-options', [AdminInvestmentPackageController::class, 'filterOptions']);
+        Route::patch('investment-packages/{investment_package}/availability-status', [AdminInvestmentPackageController::class, 'updateAvailabilityStatus']);
+        Route::patch('investment-packages/{investment_package}/featured', [AdminInvestmentPackageController::class, 'updateFeatured']);
+        Route::apiResource('investment-packages', AdminInvestmentPackageController::class);
     });
 });
