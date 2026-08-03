@@ -4,9 +4,11 @@ use App\Http\Controllers\Api\Activity\UserPageVisitController;
 use App\Http\Controllers\Api\Admin\AdminAuthController;
 use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
 use App\Http\Controllers\Api\Auth\UserAuthController;
+use App\Http\Controllers\Api\UserNotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -22,6 +24,15 @@ Route::prefix('auth')->group(function (): void {
         Route::post('refresh', [UserAuthController::class, 'refresh']);
         Route::get('me', [UserAuthController::class, 'me']);
     });
+});
+
+Route::middleware('auth:api')->group(function (): void {
+    Route::get('notifications/filter-options', [UserNotificationController::class, 'filterOptions']);
+    Route::get('notifications/unread-count', [UserNotificationController::class, 'unreadCount']);
+    Route::post('notifications/mark-all-as-read', [UserNotificationController::class, 'markAllAsRead']);
+    Route::get('notifications', [UserNotificationController::class, 'index']);
+    Route::get('notifications/{notification}', [UserNotificationController::class, 'show']);
+    Route::post('notifications/{notification}/read', [UserNotificationController::class, 'markAsRead']);
 });
 
 Route::prefix('activity')->group(function (): void {
@@ -57,5 +68,9 @@ Route::prefix('admin')->group(function (): void {
         Route::get('user-page-visit-logs/filter-options', [AdminUserPageVisitLogController::class, 'filterOptions']);
         Route::get('user-page-visit-logs/overview', [AdminUserPageVisitLogController::class, 'overview']);
         Route::get('user-page-visit-logs', [AdminUserPageVisitLogController::class, 'index']);
+
+        Route::get('notifications/filter-options', [AdminNotificationController::class, 'filterOptions']);
+        Route::get('notifications', [AdminNotificationController::class, 'index']);
+        Route::post('notifications', [AdminNotificationController::class, 'store']);
     });
 });
