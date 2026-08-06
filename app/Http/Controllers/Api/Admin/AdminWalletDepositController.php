@@ -117,12 +117,12 @@ class AdminWalletDepositController extends Controller
         DeclineWalletDepositRequest $request,
         WalletDeposit $walletDeposit,
     ): JsonResponse {
-        // if ($walletDeposit->status === WalletDepositStatus::Approved->value) {
-        //     return $this->errorResponse(
-        //         message: 'Approved deposits cannot be declined',
-        //         statusCode: 422,
-        //     );
-        // }
+        if ($walletDeposit->status === WalletDepositStatus::Approved->value) {
+            return $this->errorResponse(
+                message: 'Approved deposits cannot be declined',
+                statusCode: 422,
+            );
+        }
 
         if ($walletDeposit->status === WalletDepositStatus::Declined->value) {
             return $this->successResponse(
@@ -131,12 +131,12 @@ class AdminWalletDepositController extends Controller
             );
         }
 
-        // if ($walletDeposit->status !== WalletDepositStatus::PendingApproval->value) {
-        //     return $this->errorResponse(
-        //         message: 'Only pending deposits can be declined',
-        //         statusCode: 422,
-        //     );
-        // }
+        if ($walletDeposit->status !== WalletDepositStatus::PendingApproval->value) {
+            return $this->errorResponse(
+                message: 'Only pending deposits can be declined',
+                statusCode: 422,
+            );
+        }
 
         /** @var Admin $admin */
         $admin = Auth::guard('admin')->user();

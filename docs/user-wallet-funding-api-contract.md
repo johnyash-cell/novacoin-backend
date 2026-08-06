@@ -46,7 +46,8 @@ Admin-defined funding option. **Not** a hardcoded catalog — admin chooses whic
 | `coingecko_asset_id` | string | Derived for pricing — admin responses only; members never send/see this |
 | `network_name` | string | e.g. Bitcoin, ERC20, TRC20 |
 | `wallet_address` | string | Receive address |
-| `is_available_for_funding` | boolean | User-visible when true |
+| `is_available_for_funding` | boolean | User-visible on Fund Account when true |
+| `is_available_for_withdrawal` | boolean | User-visible on Withdraw payout methods when true (default false) |
 | `sort_order` | integer | Ascending |
 | `notes` | string \| null | Admin-only |
 | `created_at` / `updated_at` | ISO-8601 | |
@@ -87,12 +88,12 @@ Admin picks `value` as `asset_key`. Backend maps to symbol + CoinGecko id. Admin
 GET {{baseUrl}}admin/platform-crypto-wallets/filter-options
 ```
 
-Filters: `is_available_for_funding` single-select.
+Filters: `is_available_for_funding`, `is_available_for_withdrawal` single-select.
 
 ### List
 
 ```
-GET {{baseUrl}}admin/platform-crypto-wallets?page=1&per_page=10&sort_by=newest&search=&is_available_for_funding=
+GET {{baseUrl}}admin/platform-crypto-wallets?page=1&per_page=10&sort_by=newest&search=&is_available_for_funding=&is_available_for_withdrawal=
 ```
 
 ### Create
@@ -108,6 +109,7 @@ POST {{baseUrl}}admin/platform-crypto-wallets
 | `wallet_address` | yes |
 | `name` | no — defaults to asset label (e.g. Bitcoin) |
 | `is_available_for_funding` | no (default true) |
+| `is_available_for_withdrawal` | no (default false) |
 | `sort_order` | no (default 0) |
 | `notes` | no |
 
@@ -126,6 +128,7 @@ curl -X POST "{{baseUrl}}admin/platform-crypto-wallets" \
     "network_name": "Bitcoin",
     "wallet_address": "bc1qexample",
     "is_available_for_funding": true,
+    "is_available_for_withdrawal": false,
     "sort_order": 1
   }'
 ```
@@ -154,13 +157,20 @@ Wallet is created lazily (balance `0`) on first access.
 
 ---
 
-## User — available payment methods
+## User — available payment / payout methods
 
 ```
 GET {{baseUrl}}platform-crypto-wallets
+GET {{baseUrl}}platform-crypto-wallets?purpose=funding
+GET {{baseUrl}}platform-crypto-wallets?purpose=withdrawal
 ```
 
-Only rows with `is_available_for_funding = true`, ordered by `sort_order` then `id`. Includes `wallet_address` and `network_name` for pay instructions.
+| `purpose` | Default | Returns |
+|-----------|---------|---------|
+| `funding` | yes (when omitted) | `is_available_for_funding = true` — Fund Account |
+| `withdrawal` | no | `is_available_for_withdrawal = true` — Withdraw payout methods |
+
+Ordered by `sort_order` then `id`. Includes `wallet_address` and `network_name`. Member responses omit `notes`, `asset_key`, `coingecko_asset_id`.
 
 ---
 

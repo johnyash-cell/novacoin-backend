@@ -22,15 +22,22 @@ class IndexPlatformCryptoWalletsRequest extends ApiFormRequest
             'sort_by' => ['sometimes', 'string', 'in:newest,oldest'],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_available_for_funding' => ['sometimes', 'nullable', 'boolean'],
+            'is_available_for_withdrawal' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('is_available_for_funding') && is_string($this->input('is_available_for_funding'))) {
+        $this->mergeBooleanQueryParam('is_available_for_funding');
+        $this->mergeBooleanQueryParam('is_available_for_withdrawal');
+    }
+
+    private function mergeBooleanQueryParam(string $key): void
+    {
+        if ($this->has($key) && is_string($this->input($key))) {
             $this->merge([
-                'is_available_for_funding' => filter_var(
-                    $this->input('is_available_for_funding'),
+                $key => filter_var(
+                    $this->input($key),
                     FILTER_VALIDATE_BOOLEAN,
                     FILTER_NULL_ON_FAILURE,
                 ),

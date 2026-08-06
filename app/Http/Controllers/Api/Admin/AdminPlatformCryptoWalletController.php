@@ -31,6 +31,11 @@ class AdminPlatformCryptoWalletController extends Controller
 
     public function filterOptions(): JsonResponse
     {
+        $availabilityOptions = [
+            ['value' => 'true', 'label' => 'Available'],
+            ['value' => 'false', 'label' => 'Unavailable'],
+        ];
+
         return $this->successResponse(
             message: 'Filter options retrieved successfully',
             data: [
@@ -38,15 +43,19 @@ class AdminPlatformCryptoWalletController extends Controller
                     [
                         'key' => 'is_available_for_funding',
                         'label' => 'Available for funding',
-                        'description' => 'Filter by whether members can use this wallet',
+                        'description' => 'Filter by whether members can use this wallet on Fund Account',
                         'type' => 'single-select',
-                        'options' => [
-                            ['value' => 'true', 'label' => 'Available'],
-                            ['value' => 'false', 'label' => 'Unavailable'],
-                        ],
+                        'options' => $availabilityOptions,
+                    ],
+                    [
+                        'key' => 'is_available_for_withdrawal',
+                        'label' => 'Available for withdrawal',
+                        'description' => 'Filter by whether members can use this wallet on Withdraw',
+                        'type' => 'single-select',
+                        'options' => $availabilityOptions,
                     ],
                 ],
-                'total_available_filters' => 1,
+                'total_available_filters' => 2,
             ],
         );
     }
@@ -62,6 +71,10 @@ class AdminPlatformCryptoWalletController extends Controller
             ->when(
                 array_key_exists('is_available_for_funding', $validated) && $validated['is_available_for_funding'] !== null,
                 fn ($query) => $query->where('is_available_for_funding', $validated['is_available_for_funding']),
+            )
+            ->when(
+                array_key_exists('is_available_for_withdrawal', $validated) && $validated['is_available_for_withdrawal'] !== null,
+                fn ($query) => $query->where('is_available_for_withdrawal', $validated['is_available_for_withdrawal']),
             )
             ->orderBy('created_at', $sortBy === 'newest' ? 'desc' : 'asc')
             ->paginate($perPage);
@@ -81,6 +94,7 @@ class AdminPlatformCryptoWalletController extends Controller
                 'filters' => [
                     'search' => $validated['search'] ?? null,
                     'is_available_for_funding' => $validated['is_available_for_funding'] ?? null,
+                    'is_available_for_withdrawal' => $validated['is_available_for_withdrawal'] ?? null,
                     'sort_by' => $sortBy,
                 ],
             ],
@@ -91,6 +105,7 @@ class AdminPlatformCryptoWalletController extends Controller
     {
         $validated = $this->mapValidatedPlatformCryptoWalletPayload($request->validated());
         $validated['is_available_for_funding'] = $validated['is_available_for_funding'] ?? true;
+        $validated['is_available_for_withdrawal'] = $validated['is_available_for_withdrawal'] ?? false;
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
 
         $wallet = PlatformCryptoWallet::query()->create($validated);

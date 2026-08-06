@@ -31,9 +31,9 @@ class CreditsUserWalletFromApprovedDeposit
                 return $lockedDeposit->fresh(['user', 'platformCryptoWallet', 'reviewedByAdmin']) ?? $lockedDeposit;
             }
 
-            // if ($lockedDeposit->status !== WalletDepositStatus::PendingApproval->value) {
-            //     throw new RuntimeException('Only pending deposits can be approved.');
-            // }
+            if ($lockedDeposit->status !== WalletDepositStatus::PendingApproval->value) {
+                throw new RuntimeException('Only pending deposits can be approved.');
+            }
 
             $user = User::query()->findOrFail($lockedDeposit->user_id);
             $userWallet = $this->resolvesUserWallet->resolveForUser($user);

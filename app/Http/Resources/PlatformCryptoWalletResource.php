@@ -29,6 +29,7 @@ class PlatformCryptoWalletResource extends JsonResource
             'network_name' => $this->network_name,
             'wallet_address' => $this->wallet_address,
             'is_available_for_funding' => (bool) $this->is_available_for_funding,
+            'is_available_for_withdrawal' => (bool) $this->is_available_for_withdrawal,
             'sort_order' => $this->sort_order,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

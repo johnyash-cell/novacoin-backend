@@ -24,6 +24,7 @@ class PlatformCryptoWalletFactory extends Factory
             'network_name' => 'Bitcoin',
             'wallet_address' => 'bc1q'.fake()->bothify('????????????????????????'),
             'is_available_for_funding' => true,
+            'is_available_for_withdrawal' => false,
             'sort_order' => 1,
             'notes' => null,
         ];
@@ -33,6 +34,13 @@ class PlatformCryptoWalletFactory extends Factory
     {
         return $this->state(fn (): array => [
             'is_available_for_funding' => false,
+        ]);
+    }
+
+    public function availableForWithdrawal(): static
+    {
+        return $this->state(fn (): array => [
+            'is_available_for_withdrawal' => true,
         ]);
     }
 

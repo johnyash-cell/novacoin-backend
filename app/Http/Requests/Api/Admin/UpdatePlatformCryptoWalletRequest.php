@@ -26,6 +26,7 @@ class UpdatePlatformCryptoWalletRequest extends ApiFormRequest
             'network_name' => [$requiredRule, 'string', 'max:64'],
             'wallet_address' => [$requiredRule, 'string', 'max:255'],
             'is_available_for_funding' => ['sometimes', 'boolean'],
+            'is_available_for_withdrawal' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ];

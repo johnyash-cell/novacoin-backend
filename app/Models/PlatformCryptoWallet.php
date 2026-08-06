@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'network_name',
     'wallet_address',
     'is_available_for_funding',
+    'is_available_for_withdrawal',
     'sort_order',
     'notes',
 ])]
@@ -31,6 +32,7 @@ class PlatformCryptoWallet extends Model
     {
         return [
             'is_available_for_funding' => 'boolean',
+            'is_available_for_withdrawal' => 'boolean',
             'sort_order' => 'integer',
         ];
     }
@@ -50,6 +52,15 @@ class PlatformCryptoWallet extends Model
     public function scopeAvailableForFunding(Builder $query): Builder
     {
         return $query->where('is_available_for_funding', true);
+    }
+
+    /**
+     * @param  Builder<PlatformCryptoWallet>  $query
+     * @return Builder<PlatformCryptoWallet>
+     */
+    public function scopeAvailableForWithdrawal(Builder $query): Builder
+    {
+        return $query->where('is_available_for_withdrawal', true);
     }
 
     /**
