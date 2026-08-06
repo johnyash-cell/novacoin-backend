@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\Admin\BanUserRequest;
 use App\Http\Requests\Api\Admin\IndexUsersRequest;
 use App\Http\Requests\Api\Admin\PromoteUserToAdminRequest;
+use App\Http\Requests\Api\Admin\ReactivateUserRequest;
 use App\Http\Requests\Api\Admin\StoreUserRequest;
+use App\Http\Requests\Api\Admin\SuspendUserRequest;
+use App\Http\Requests\Api\Admin\UnsuspendUserRequest;
 use App\Http\Requests\Api\Admin\UpdateUserRequest;
 use App\Http\Resources\AdminDirectoryMemberResource;
 use App\Http\Resources\AdminResource;
@@ -15,8 +19,12 @@ use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\Admin;
 use App\Models\User;
 use App\Services\Admin\BuildsAdminUserProfileSummary;
+use App\Services\Admin\ManagesUserAccountRestrictionStatus;
 use App\Services\Admin\PaginatesAdminUserDirectoryListing;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
+use RuntimeException;
 
 class AdminUserController extends Controller
 {
@@ -147,6 +155,139 @@ class AdminUserController extends Controller
             message: 'User promoted to admin successfully',
             data: (new AdminResource($admin))->resolve(),
             statusCode: 201,
+        );
+    }
+
+    public function ban(
+        BanUserRequest $request,
+        User $user,
+        ManagesUserAccountRestrictionStatus $managesUserAccountRestrictionStatus,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        /** @var Admin $admin */
+        $admin = Auth::guard('admin')->user();
+
+        try {
+            $bannedUser = $managesUserAccountRestrictionStatus->ban(
+                user: $user,
+                admin: $admin,
+                reason: $request->validated('reason'),
+            );
+        } catch (RuntimeException $exception) {
+            return $this->errorResponse(
+                message: $exception->getMessage(),
+                statusCode: 422,
+            );
+        }
+
+        return $this->userProfileRestrictionResponse(
+            message: 'User banned successfully',
+            user: $bannedUser,
+            buildsAdminUserProfileSummary: $buildsAdminUserProfileSummary,
+        );
+    }
+
+    public function suspend(
+        SuspendUserRequest $request,
+        User $user,
+        ManagesUserAccountRestrictionStatus $managesUserAccountRestrictionStatus,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        /** @var Admin $admin */
+        $admin = Auth::guard('admin')->user();
+
+        try {
+            $suspendedUser = $managesUserAccountRestrictionStatus->suspend(
+                user: $user,
+                admin: $admin,
+                suspendedUntil: Carbon::parse($request->validated('suspended_until')),
+                reason: $request->validated('reason'),
+            );
+        } catch (RuntimeException $exception) {
+            return $this->errorResponse(
+                message: $exception->getMessage(),
+                statusCode: 422,
+            );
+        }
+
+        return $this->userProfileRestrictionResponse(
+            message: 'User suspended successfully',
+            user: $suspendedUser,
+            buildsAdminUserProfileSummary: $buildsAdminUserProfileSummary,
+        );
+    }
+
+    public function unsuspend(
+        UnsuspendUserRequest $request,
+        User $user,
+        ManagesUserAccountRestrictionStatus $managesUserAccountRestrictionStatus,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        /** @var Admin $admin */
+        $admin = Auth::guard('admin')->user();
+
+        try {
+            $unsuspendedUser = $managesUserAccountRestrictionStatus->unsuspend(
+                user: $user,
+                admin: $admin,
+                reason: $request->validated('reason'),
+            );
+        } catch (RuntimeException $exception) {
+            return $this->errorResponse(
+                message: $exception->getMessage(),
+                statusCode: 422,
+            );
+        }
+
+        return $this->userProfileRestrictionResponse(
+            message: 'User unsuspended successfully',
+            user: $unsuspendedUser,
+            buildsAdminUserProfileSummary: $buildsAdminUserProfileSummary,
+        );
+    }
+
+    public function reactivate(
+        ReactivateUserRequest $request,
+        User $user,
+        ManagesUserAccountRestrictionStatus $managesUserAccountRestrictionStatus,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        /** @var Admin $admin */
+        $admin = Auth::guard('admin')->user();
+
+        try {
+            $reactivatedUser = $managesUserAccountRestrictionStatus->reactivate(
+                user: $user,
+                admin: $admin,
+                reason: $request->validated('reason'),
+            );
+        } catch (RuntimeException $exception) {
+            return $this->errorResponse(
+                message: $exception->getMessage(),
+                statusCode: 422,
+            );
+        }
+
+        return $this->userProfileRestrictionResponse(
+            message: 'User reactivated successfully',
+            user: $reactivatedUser,
+            buildsAdminUserProfileSummary: $buildsAdminUserProfileSummary,
+        );
+    }
+
+    private function userProfileRestrictionResponse(
+        string $message,
+        User $user,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        $user->load('adminBackofficeAccount');
+
+        return $this->successResponse(
+            message: $message,
+            data: (new AdminUserProfileResource(
+                $user,
+                $buildsAdminUserProfileSummary->build($user),
+            ))->resolve(),
         );
     }
 }

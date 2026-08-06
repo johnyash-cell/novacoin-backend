@@ -57,4 +57,24 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
         ]);
     }
+
+    public function banned(?string $reason = 'Policy violation'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'banned',
+            'account_status_reason' => $reason,
+            'account_status_changed_at' => now(),
+            'suspended_until' => null,
+        ]);
+    }
+
+    public function suspended(?\DateTimeInterface $until = null, ?string $reason = 'Temporary hold'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'suspended',
+            'account_status_reason' => $reason,
+            'account_status_changed_at' => now(),
+            'suspended_until' => $until ?? now()->addDays(7),
+        ]);
+    }
 }

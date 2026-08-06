@@ -2,6 +2,7 @@
 
 use App\Models\Admin;
 use App\Models\User;
+use App\Models\UserWallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -28,7 +29,33 @@ it('lists users with pagination for an authenticated admin', function () {
         ->assertJsonPath('status', true)
         ->assertJsonPath('meta.pagination.current_page', 1)
         ->assertJsonPath('meta.pagination.total', 4)
-        ->assertJsonStructure(['data' => [['record_type', 'role', 'email', 'created_at']]]);
+        ->assertJsonStructure(['data' => [['record_type', 'role', 'email', 'account_status', 'account_status_label', 'created_at']]]);
+});
+
+it('includes wallet balance and account status on user directory rows', function () {
+    $authAdmin = authenticateAsAdmin();
+    $user = User::factory()->banned('Policy')->create([
+        'email' => 'wallet-member@example.com',
+    ]);
+    UserWallet::factory()->create([
+        'user_id' => $user->id,
+        'available_balance' => 786.5,
+        'currency_code' => 'USD',
+    ]);
+
+    $response = $this->withHeader('Authorization', 'Bearer '.adminBearerTokenFor($authAdmin))
+        ->getJson('/api/admin/users?search=wallet-member')
+        ->assertSuccessful();
+
+    $row = collect($response->json('data'))->firstWhere('email', 'wallet-member@example.com');
+
+    expect($row)->not->toBeNull()
+        ->and($row['account_status'])->toBe('banned')
+        ->and($row['account_status_label'])->toBe('Banned')
+        ->and($row['wallet'])->toMatchArray([
+            'available_balance' => 786.5,
+            'currency_code' => 'USD',
+        ]);
 });
 
 it('includes admin-only accounts in the users directory listing', function () {

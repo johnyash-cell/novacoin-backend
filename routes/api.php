@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\UserNotificationController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WalletDepositController;
 use App\Http\Controllers\Api\WalletWithdrawalController;
+use App\Http\Middleware\EnsureMemberAccountIsNotRestricted;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -32,12 +33,15 @@ Route::prefix('auth')->group(function (): void {
 
     Route::middleware('auth:api')->group(function (): void {
         Route::post('logout', [UserAuthController::class, 'logout']);
-        Route::post('refresh', [UserAuthController::class, 'refresh']);
-        Route::get('me', [UserAuthController::class, 'me']);
+
+        Route::middleware(EnsureMemberAccountIsNotRestricted::class)->group(function (): void {
+            Route::post('refresh', [UserAuthController::class, 'refresh']);
+            Route::get('me', [UserAuthController::class, 'me']);
+        });
     });
 });
 
-Route::middleware('auth:api')->group(function (): void {
+Route::middleware(['auth:api', EnsureMemberAccountIsNotRestricted::class])->group(function (): void {
     Route::get('notifications/filter-options', [UserNotificationController::class, 'filterOptions']);
     Route::get('notifications/unread-count', [UserNotificationController::class, 'unreadCount']);
     Route::post('notifications/mark-all-as-read', [UserNotificationController::class, 'markAllAsRead']);
@@ -90,6 +94,10 @@ Route::prefix('admin')->group(function (): void {
         Route::get('users/{user}/wallet-withdrawals', [AdminWalletWithdrawalController::class, 'indexForUser']);
         Route::get('users/{user}/investments/filter-options', [AdminUserInvestmentController::class, 'filterOptions']);
         Route::get('users/{user}/investments', [AdminUserInvestmentController::class, 'index']);
+        Route::post('users/{user}/ban', [AdminUserController::class, 'ban']);
+        Route::post('users/{user}/suspend', [AdminUserController::class, 'suspend']);
+        Route::post('users/{user}/unsuspend', [AdminUserController::class, 'unsuspend']);
+        Route::post('users/{user}/reactivate', [AdminUserController::class, 'reactivate']);
         Route::apiResource('users', AdminUserController::class);
         Route::post('users/{user}/promote-to-admin', [AdminUserController::class, 'promoteToAdmin']);
 

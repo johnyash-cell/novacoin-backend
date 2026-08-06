@@ -12,6 +12,7 @@ use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\User;
 use App\Services\Auth\GoogleUserAuthenticationService;
 use App\Services\Auth\RecordsAuthenticationLoginAttempt;
+use App\Services\Auth\ResolvesUserAccountAccessRestrictionMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,6 +41,7 @@ class UserAuthController extends Controller
     public function login(
         LoginUserRequest $request,
         RecordsAuthenticationLoginAttempt $recordsAuthenticationLoginAttempt,
+        ResolvesUserAccountAccessRestrictionMessage $resolvesUserAccountAccessRestrictionMessage,
     ): JsonResponse {
         $credentials = $request->only(['email', 'password']);
 
@@ -56,6 +58,24 @@ class UserAuthController extends Controller
                 message: 'This account uses Google sign-in. Please continue with Google.',
                 statusCode: 401,
             );
+        }
+
+        if ($user !== null) {
+            $restrictionMessage = $resolvesUserAccountAccessRestrictionMessage
+                ->restrictionMessageOrNull($user);
+
+            if ($restrictionMessage !== null) {
+                $recordsAuthenticationLoginAttempt->recordFailedUserPasswordLogin(
+                    email: $credentials['email'],
+                    request: $request,
+                    failureReason: $restrictionMessage,
+                );
+
+                return $this->errorResponse(
+                    message: $restrictionMessage,
+                    statusCode: 403,
+                );
+            }
         }
 
         $token = Auth::guard('api')->attempt($credentials);
@@ -96,6 +116,7 @@ class UserAuthController extends Controller
         GoogleLoginRequest $request,
         GoogleUserAuthenticationService $googleUserAuthenticationService,
         RecordsAuthenticationLoginAttempt $recordsAuthenticationLoginAttempt,
+        ResolvesUserAccountAccessRestrictionMessage $resolvesUserAccountAccessRestrictionMessage,
     ): JsonResponse {
         try {
             $user = $googleUserAuthenticationService->authenticateWithIdToken(
@@ -111,6 +132,22 @@ class UserAuthController extends Controller
             return $this->errorResponse(
                 message: $exception->getMessage(),
                 statusCode: 401,
+            );
+        }
+
+        $restrictionMessage = $resolvesUserAccountAccessRestrictionMessage
+            ->restrictionMessageOrNull($user);
+
+        if ($restrictionMessage !== null) {
+            $recordsAuthenticationLoginAttempt->recordFailedUserGoogleLogin(
+                email: $user->email,
+                request: $request,
+                failureReason: $restrictionMessage,
+            );
+
+            return $this->errorResponse(
+                message: $restrictionMessage,
+                statusCode: 403,
             );
         }
 

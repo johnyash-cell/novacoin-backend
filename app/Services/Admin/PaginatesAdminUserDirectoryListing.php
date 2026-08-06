@@ -25,6 +25,7 @@ class PaginatesAdminUserDirectoryListing
 
         $userRows = User::query()
             ->leftJoin('admins', 'admins.email', '=', 'users.email')
+            ->leftJoin('user_wallets', 'user_wallets.user_id', '=', 'users.id')
             ->select($this->directorySelectColumns(
                 recordType: 'user',
                 userIdColumn: 'users.id',
@@ -34,6 +35,10 @@ class PaginatesAdminUserDirectoryListing
                 emailColumn: 'users.email',
                 phoneColumn: 'users.phone',
                 googleIdColumn: 'users.google_id',
+                accountStatusColumn: 'users.account_status',
+                suspendedUntilColumn: 'users.suspended_until',
+                walletAvailableBalanceColumn: 'user_wallets.available_balance',
+                walletCurrencyCodeColumn: 'user_wallets.currency_code',
                 emailVerifiedAtColumn: 'users.email_verified_at',
                 createdAtColumn: 'users.created_at',
                 updatedAtColumn: 'users.updated_at',
@@ -64,6 +69,10 @@ class PaginatesAdminUserDirectoryListing
                 emailColumn: 'admins.email',
                 phoneColumn: 'admins.phone',
                 googleIdColumn: null,
+                accountStatusColumn: null,
+                suspendedUntilColumn: null,
+                walletAvailableBalanceColumn: null,
+                walletCurrencyCodeColumn: null,
                 emailVerifiedAtColumn: null,
                 createdAtColumn: 'admins.created_at',
                 updatedAtColumn: 'admins.updated_at',
@@ -108,6 +117,10 @@ class PaginatesAdminUserDirectoryListing
         string $emailColumn,
         string $phoneColumn,
         ?string $googleIdColumn,
+        ?string $accountStatusColumn,
+        ?string $suspendedUntilColumn,
+        ?string $walletAvailableBalanceColumn,
+        ?string $walletCurrencyCodeColumn,
         ?string $emailVerifiedAtColumn,
         string $createdAtColumn,
         string $updatedAtColumn,
@@ -125,6 +138,18 @@ class PaginatesAdminUserDirectoryListing
             DB::raw("{$emailColumn} as email"),
             DB::raw("{$phoneColumn} as phone"),
             $googleIdColumn === null ? DB::raw('NULL as google_id') : DB::raw("{$googleIdColumn} as google_id"),
+            $accountStatusColumn === null
+                ? DB::raw("'active' as account_status")
+                : DB::raw("{$accountStatusColumn} as account_status"),
+            $suspendedUntilColumn === null
+                ? DB::raw('NULL as suspended_until')
+                : DB::raw("{$suspendedUntilColumn} as suspended_until"),
+            $walletAvailableBalanceColumn === null
+                ? DB::raw('NULL as wallet_available_balance')
+                : DB::raw("{$walletAvailableBalanceColumn} as wallet_available_balance"),
+            $walletCurrencyCodeColumn === null
+                ? DB::raw('NULL as wallet_currency_code')
+                : DB::raw("{$walletCurrencyCodeColumn} as wallet_currency_code"),
             $emailVerifiedAtColumn === null ? DB::raw('NULL as email_verified_at') : DB::raw("{$emailVerifiedAtColumn} as email_verified_at"),
             DB::raw("{$roleExpression} as role"),
             DB::raw("{$createdAtColumn} as created_at"),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserAccountStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -20,14 +21,36 @@ class User extends Authenticatable implements JWTSubject
     use HasFactory, Notifiable;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'account_status' => 'active',
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'account_status_changed_at' => 'datetime',
+            'suspended_until' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function accountStatusValue(): string
+    {
+        return (string) ($this->account_status ?? 'active');
+    }
+
+    public function accountStatusLabel(): string
+    {
+        $status = $this->accountStatusValue();
+
+        return UserAccountStatus::tryFrom($status)?->label()
+            ?? ucfirst(str_replace('_', ' ', $status));
     }
 
     public function getJWTIdentifier(): mixed
