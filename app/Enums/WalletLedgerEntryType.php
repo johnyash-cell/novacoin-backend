@@ -8,6 +8,7 @@ enum WalletLedgerEntryType: string
     case InvestmentDebit = 'investment_debit';
     case WithdrawalDebit = 'withdrawal_debit';
     case WithdrawalRefundCredit = 'withdrawal_refund_credit';
+    case ReferralCredit = 'referral_credit';
 
     /**
      * @return list<string>

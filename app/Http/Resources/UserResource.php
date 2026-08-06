@@ -23,6 +23,8 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'has_google_linked' => $this->hasGoogleLinked(),
+            'referral_code' => $this->referral_code,
+            'referred_by_user_id' => $this->referred_by_user_id,
             'account_status' => $this->accountStatusValue(),
             'account_status_label' => $this->accountStatusLabel(),
             'suspended_until' => $this->suspended_until,

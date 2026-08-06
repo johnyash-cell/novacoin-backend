@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletDeposit;
 use App\Models\WalletLedgerEntry;
+use App\Services\Referral\PaysReferrerRewardForApprovedDeposit;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -16,6 +17,7 @@ class CreditsUserWalletFromApprovedDeposit
 {
     public function __construct(
         private ResolvesUserWallet $resolvesUserWallet,
+        private PaysReferrerRewardForApprovedDeposit $paysReferrerRewardForApprovedDeposit,
     ) {}
 
     public function approve(WalletDeposit $walletDeposit, Admin $admin): WalletDeposit
@@ -67,6 +69,9 @@ class CreditsUserWalletFromApprovedDeposit
                 'reviewed_at' => now(),
                 'decline_reason' => null,
             ])->save();
+
+            // Referrer reward uses the same approval transaction so deposit + reward commit together.
+            $this->paysReferrerRewardForApprovedDeposit->payIfEligible($lockedDeposit, $admin);
 
             return $lockedDeposit->fresh(['user', 'platformCryptoWallet', 'reviewedByAdmin']) ?? $lockedDeposit;
         });

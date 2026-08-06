@@ -13,16 +13,33 @@ use App\Models\User;
 use App\Services\Auth\GoogleUserAuthenticationService;
 use App\Services\Auth\RecordsAuthenticationLoginAttempt;
 use App\Services\Auth\ResolvesUserAccountAccessRestrictionMessage;
+use App\Services\Referral\AttachesReferrerFromReferralCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class UserAuthController extends Controller
 {
     use RespondsWithApiEnvelope;
 
-    public function register(RegisterUserRequest $request): JsonResponse
-    {
-        $user = User::query()->create($request->validated());
+    public function register(
+        RegisterUserRequest $request,
+        AttachesReferrerFromReferralCode $attachesReferrerFromReferralCode,
+    ): JsonResponse {
+        $validated = $request->validated();
+        $referralCode = $validated['referral_code'] ?? null;
+        unset($validated['referral_code']);
+
+        // Create + referral attach must commit together so invalid attach cannot leave an orphan member.
+        $user = DB::transaction(function () use ($validated, $referralCode, $attachesReferrerFromReferralCode): User {
+            $user = User::query()->create($validated);
+
+            if (filled($referralCode)) {
+                $attachesReferrerFromReferralCode->attach($user, $referralCode);
+            }
+
+            return $user->fresh() ?? $user;
+        });
 
         $token = Auth::guard('api')->login($user);
 
@@ -120,7 +137,8 @@ class UserAuthController extends Controller
     ): JsonResponse {
         try {
             $user = $googleUserAuthenticationService->authenticateWithIdToken(
-                $request->validated('id_token'),
+                idToken: $request->validated('id_token'),
+                referralCode: $request->validated('referral_code'),
             );
         } catch (InvalidGoogleIdTokenException $exception) {
             $recordsAuthenticationLoginAttempt->recordFailedUserGoogleLogin(

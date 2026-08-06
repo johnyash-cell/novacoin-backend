@@ -3,22 +3,35 @@
 namespace App\Models;
 
 use App\Enums\UserAccountStatus;
+use App\Services\Referral\GeneratesUniqueUserReferralCode;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['first_name', 'last_name', 'email', 'password', 'phone', 'google_id', 'email_verified_at'])]
+#[Fillable(['first_name', 'last_name', 'email', 'password', 'phone', 'google_id', 'email_verified_at', 'referral_code', 'referred_by_user_id'])]
 #[Hidden(['password', 'remember_token', 'google_id'])]
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            if (filled($user->referral_code)) {
+                return;
+            }
+
+            $user->referral_code = app(GeneratesUniqueUserReferralCode::class)->generate();
+        });
+    }
 
     /**
      * @var array<string, mixed>
@@ -127,5 +140,29 @@ class User extends Authenticatable implements JWTSubject
     public function investments(): HasMany
     {
         return $this->hasMany(Investment::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function referredByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by_user_id');
+    }
+
+    /**
+     * @return HasMany<User, $this>
+     */
+    public function referredUsers(): HasMany
+    {
+        return $this->hasMany(User::class, 'referred_by_user_id');
+    }
+
+    /**
+     * @return HasMany<ReferralRewardPayout, $this>
+     */
+    public function referralRewardPayoutsAsReferrer(): HasMany
+    {
+        return $this->hasMany(ReferralRewardPayout::class, 'referrer_user_id');
     }
 }

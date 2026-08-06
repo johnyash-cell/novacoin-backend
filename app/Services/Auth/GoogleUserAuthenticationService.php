@@ -4,14 +4,17 @@ namespace App\Services\Auth;
 
 use App\Contracts\Auth\GoogleIdTokenVerifierContract;
 use App\Models\User;
+use App\Services\Referral\AttachesReferrerFromReferralCode;
+use Illuminate\Support\Facades\DB;
 
 class GoogleUserAuthenticationService
 {
     public function __construct(
         private GoogleIdTokenVerifierContract $googleIdTokenVerifier,
+        private AttachesReferrerFromReferralCode $attachesReferrerFromReferralCode,
     ) {}
 
-    public function authenticateWithIdToken(string $idToken): User
+    public function authenticateWithIdToken(string $idToken, ?string $referralCode = null): User
     {
         $profile = $this->googleIdTokenVerifier->verify($idToken);
 
@@ -35,13 +38,22 @@ class GoogleUserAuthenticationService
             return $user;
         }
 
-        return User::query()->create([
-            'first_name' => $profile->firstName,
-            'last_name' => $profile->lastName,
-            'email' => $profile->email,
-            'google_id' => $profile->googleId,
-            'password' => null,
-            'email_verified_at' => $profile->isEmailVerified ? now() : null,
-        ]);
+        // Create + referral attach must commit together for new Google accounts.
+        return DB::transaction(function () use ($profile, $referralCode): User {
+            $user = User::query()->create([
+                'first_name' => $profile->firstName,
+                'last_name' => $profile->lastName,
+                'email' => $profile->email,
+                'google_id' => $profile->googleId,
+                'password' => null,
+                'email_verified_at' => $profile->isEmailVerified ? now() : null,
+            ]);
+
+            if (filled($referralCode)) {
+                $this->attachesReferrerFromReferralCode->attach($user, $referralCode);
+            }
+
+            return $user->fresh() ?? $user;
+        });
     }
 }

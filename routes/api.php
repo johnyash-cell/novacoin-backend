@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
+use App\Http\Controllers\Api\Admin\AdminReferralRewardPayoutController;
+use App\Http\Controllers\Api\Admin\AdminReferralSettingsController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserInvestmentController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Api\Auth\UserAuthController;
 use App\Http\Controllers\Api\InvestmentController;
 use App\Http\Controllers\Api\InvestmentPackageController;
 use App\Http\Controllers\Api\PlatformCryptoWalletController;
+use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\UserNotificationController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WalletDepositController;
@@ -64,6 +67,9 @@ Route::middleware(['auth:api', EnsureMemberAccountIsNotRestricted::class])->grou
 
     Route::get('investments', [InvestmentController::class, 'index']);
     Route::get('investments/{investment}', [InvestmentController::class, 'show']);
+
+    Route::get('referral', [ReferralController::class, 'show']);
+    Route::get('referral/referred-users', [ReferralController::class, 'referredUsers']);
 });
 
 Route::prefix('activity')->group(function (): void {
@@ -132,5 +138,10 @@ Route::prefix('admin')->group(function (): void {
         Route::get('wallet-withdrawals/{wallet_withdrawal}', [AdminWalletWithdrawalController::class, 'show']);
         Route::post('wallet-withdrawals/{wallet_withdrawal}/approve', [AdminWalletWithdrawalController::class, 'approve']);
         Route::post('wallet-withdrawals/{wallet_withdrawal}/decline', [AdminWalletWithdrawalController::class, 'decline']);
+
+        Route::get('referral-settings', [AdminReferralSettingsController::class, 'show']);
+        Route::put('referral-settings', [AdminReferralSettingsController::class, 'update']);
+        Route::get('referral-reward-payouts/filter-options', [AdminReferralRewardPayoutController::class, 'filterOptions']);
+        Route::get('referral-reward-payouts', [AdminReferralRewardPayoutController::class, 'index']);
     });
 });
