@@ -41,4 +41,8 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'coingecko' => [
+        'api_key' => env('COINGECKO_API_KEY'),
+    ],
+
 ];

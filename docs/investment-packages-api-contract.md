@@ -1,14 +1,14 @@
 # Admin investment packages API (Phase B — package CRUD)
 
-Status: **implemented (admin CRUD)** — member invest / holdings still later  
+Status: **implemented (admin CRUD + member catalog / invest / holdings)**  
 Audience: **frontend / QA** (share this file for wiring)  
-Last updated: 2026-08-03
+Last updated: 2026-08-06
 
 **Naming:** *Investment plan* (older domain doc) ≡ *investment package* (this contract). API uses **`investment-packages`**.
 
-**This pass:** admin create / edit / delete / list packages (status, featured, expiry, capacity).  
+**This pass:** admin package CRUD **and** member catalog, invest from wallet balance, my holdings.  
 
-**Later (not in this API yet):** member catalog invest, holdings, package members from real joins, crypto wallets, approve / reject / fund. See [investment-platform.md](./investment-platform.md).
+**Related:** wallet funding (crypto deposit → approve → USD balance) is in [user-wallet-funding-api-contract.md](./user-wallet-funding-api-contract.md).
 
 ---
 
@@ -563,19 +563,115 @@ curl -X PATCH "{{baseUrl}}admin/investment-packages/1/featured" \
 
 ---
 
-## Later (out of scope for this pass)
+## Member invest (implemented)
 
-Do **not** treat as live until a follow-up contract:
+Powers member Invest screen: **Packages** tab + **My investments** tab.
 
-| Area | Notes (defaults when we return) |
-|------|----------------------------------|
-| Member `GET /investment-packages` | Catalog; expired packages **shown disabled** (not hidden) |
-| `POST /investment-packages/{id}/invest` | Body `{ "amount_usd": number }`; holding starts **`active`**; validate min/max + capacity + not expired |
-| `joined_count` on invest | Increment by 1 on success; admin can still edit |
-| `GET /investments` | Member holdings tabs `active` \| `ended` |
-| Holding end | Admin can end **or** term/time ends |
-| Admin package members table | Needs real invest rows |
-| Crypto wallets / approve / fund / ledger | Remain in [investment-platform.md](./investment-platform.md) |
+| Screen area | Endpoint |
+|-------------|----------|
+| Package catalog | `GET {{baseUrl}}investment-packages` |
+| Package detail / confirm sheet | `GET {{baseUrl}}investment-packages/{id}` |
+| Place investment | `POST {{baseUrl}}investment-packages/{id}/invest` |
+| My holdings list | `GET {{baseUrl}}investments` |
+| Single holding | `GET {{baseUrl}}investments/{id}` |
+
+All member routes require **`Authorization: Bearer {user_jwt}`**.
+
+Expired / full packages stay in the catalog (`can_invest: false`); FE disables the invest action.
+
+### GET {{baseUrl}}investment-packages
+
+Query: `page`, `per_page`, `sort_by=newest|oldest`, `search`.
+
+Featured packages sort first, then `created_at`.
+
+**`data[]` (member package card):** same core fields as admin list, plus:
+
+| Field | Notes |
+|-------|-------|
+| `can_invest` | `true` when package is joinable (open/limited, seats left, not expired) |
+| `effective_availability_status` | Use for disabled styling |
+| `remaining_seats` | `max_participants - joined_count` |
+
+**`meta.summary`:** `total`, `joinable`, `expired`.
+
+```bash
+curl -X GET "{{baseUrl}}investment-packages?page=1&per_page=10&sort_by=newest" \
+  -H "Authorization: Bearer {{userToken}}"
+```
+
+### GET {{baseUrl}}investment-packages/{id}
+
+Returns one member package object (same shape as catalog item, includes `description` + `highlights`).
+
+```bash
+curl -X GET "{{baseUrl}}investment-packages/1" \
+  -H "Authorization: Bearer {{userToken}}"
+```
+
+### POST {{baseUrl}}investment-packages/{id}/invest
+
+Body:
+
+```json
+{
+  "amount_usd": 1000
+}
+```
+
+Rules:
+
+- Debits member **USD wallet balance** atomically.
+- Creates holding with **`status: active`**.
+- Increments package **`joined_count`** by 1.
+- Validates min/max amount, capacity, expiry, and sufficient balance.
+
+**201** — `data` is an investment object:
+
+| Field | Notes |
+|-------|-------|
+| `amount_usd` | Invested principal |
+| `expected_return_amount_usd` | Snapshot at invest time |
+| `expected_payout_amount_usd` | Principal + expected return |
+| `effective_status` | `active` until `matures_at` |
+| `started_at` / `matures_at` | Term window |
+
+```bash
+curl -X POST "{{baseUrl}}investment-packages/1/invest" \
+  -H "Authorization: Bearer {{userToken}}" \
+  -H "Content-Type: application/json" \
+  -d '{"amount_usd": 1000}'
+```
+
+### GET {{baseUrl}}investments
+
+Query: `page`, `per_page`, `sort_by=newest|oldest`, `status=active|ended`.
+
+**`meta.summary`:** `active`, `ended`, `total`.
+
+```bash
+curl -X GET "{{baseUrl}}investments?status=active&page=1&per_page=10" \
+  -H "Authorization: Bearer {{userToken}}"
+```
+
+### GET {{baseUrl}}investments/{id}
+
+Owner-only. **404** `"Investment not found"` for other users' holdings.
+
+```bash
+curl -X GET "{{baseUrl}}investments/1" \
+  -H "Authorization: Bearer {{userToken}}"
+```
+
+---
+
+## Still later
+
+| Area | Notes |
+|------|-------|
+| Admin end holding early | Admin action to flip holding to `ended` |
+| Admin package members table | Needs admin list of investors per package |
+| Payout / return credit | Term end currently marks `ended` only; wallet credit TBD |
 
 ---
 
@@ -587,6 +683,4 @@ Do **not** treat as live until a follow-up contract:
 | Summary chips | Global counts by **stored** status (not effective/capacity) |
 | Auto-expire | Scheduled command **+** persist-on-read safety |
 | Delete `data` | `null` |
-| Invest / holdings | Separate pass after package CRUD ships |
-
-**Admin CRUD:** implemented in API + Pest tests. **Invest / holdings:** still later.
+| Invest / holdings | Implemented — member catalog, invest, my investments |

@@ -6,10 +6,17 @@ use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
+use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
+use App\Http\Controllers\Api\Admin\AdminWalletDepositController;
 use App\Http\Controllers\Api\Auth\UserAuthController;
+use App\Http\Controllers\Api\InvestmentController;
+use App\Http\Controllers\Api\InvestmentPackageController;
+use App\Http\Controllers\Api\PlatformCryptoWalletController;
 use App\Http\Controllers\Api\UserNotificationController;
+use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\WalletDepositController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -34,6 +41,19 @@ Route::middleware('auth:api')->group(function (): void {
     Route::get('notifications', [UserNotificationController::class, 'index']);
     Route::get('notifications/{notification}', [UserNotificationController::class, 'show']);
     Route::post('notifications/{notification}/read', [UserNotificationController::class, 'markAsRead']);
+
+    Route::get('wallet', [WalletController::class, 'show']);
+    Route::get('platform-crypto-wallets', [PlatformCryptoWalletController::class, 'index']);
+    Route::get('wallet/deposit-quote', [WalletDepositController::class, 'quote']);
+    Route::get('wallet/deposits', [WalletDepositController::class, 'index']);
+    Route::post('wallet/deposits', [WalletDepositController::class, 'store']);
+
+    Route::get('investment-packages', [InvestmentPackageController::class, 'index']);
+    Route::get('investment-packages/{investment_package}', [InvestmentPackageController::class, 'show']);
+    Route::post('investment-packages/{investment_package}/invest', [InvestmentPackageController::class, 'invest']);
+
+    Route::get('investments', [InvestmentController::class, 'index']);
+    Route::get('investments/{investment}', [InvestmentController::class, 'show']);
 });
 
 Route::prefix('activity')->group(function (): void {
@@ -78,5 +98,15 @@ Route::prefix('admin')->group(function (): void {
         Route::patch('investment-packages/{investment_package}/availability-status', [AdminInvestmentPackageController::class, 'updateAvailabilityStatus']);
         Route::patch('investment-packages/{investment_package}/featured', [AdminInvestmentPackageController::class, 'updateFeatured']);
         Route::apiResource('investment-packages', AdminInvestmentPackageController::class);
+
+        Route::get('platform-crypto-wallets/asset-options', [AdminPlatformCryptoWalletController::class, 'assetOptions']);
+        Route::get('platform-crypto-wallets/filter-options', [AdminPlatformCryptoWalletController::class, 'filterOptions']);
+        Route::apiResource('platform-crypto-wallets', AdminPlatformCryptoWalletController::class);
+
+        Route::get('wallet-deposits/filter-options', [AdminWalletDepositController::class, 'filterOptions']);
+        Route::get('wallet-deposits', [AdminWalletDepositController::class, 'index']);
+        Route::get('wallet-deposits/{wallet_deposit}', [AdminWalletDepositController::class, 'show']);
+        Route::post('wallet-deposits/{wallet_deposit}/approve', [AdminWalletDepositController::class, 'approve']);
+        Route::post('wallet-deposits/{wallet_deposit}/decline', [AdminWalletDepositController::class, 'decline']);
     });
 });

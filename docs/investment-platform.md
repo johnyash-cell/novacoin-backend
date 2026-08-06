@@ -5,8 +5,9 @@ Audience: engineering & product
 Last updated: 2026-08-01
 
 > **Phase B API (admin package CRUD):** [investment-packages-api-contract.md](./investment-packages-api-contract.md)  
+> **Wallet funding API:** [user-wallet-funding-api-contract.md](./user-wallet-funding-api-contract.md)  
 > **Naming:** *Investment plan* in this doc ≡ *investment package* in the Phase B contract.  
-> **Deferred here for later:** member invest / holdings, crypto wallets, approve / reject / fund, user wallet + ledger.
+> **Deferred here for later:** member invest / holdings from balance; older crypto-invest-without-wallet flow.
 
 ---
 

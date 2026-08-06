@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'name',
@@ -48,9 +49,28 @@ class InvestmentPackage extends Model
         ];
     }
 
+    /**
+     * @return HasMany<Investment, $this>
+     */
+    public function investments(): HasMany
+    {
+        return $this->hasMany(Investment::class);
+    }
+
     public function isAtParticipantCapacity(): bool
     {
         return $this->joined_count >= $this->max_participants;
+    }
+
+    public function isJoinable(): bool
+    {
+        $effectiveStatus = InvestmentPackageAvailabilityStatus::tryFrom($this->effectiveAvailabilityStatus());
+
+        if ($effectiveStatus === null || ! $effectiveStatus->isJoinableIntent()) {
+            return false;
+        }
+
+        return ! $this->isAtParticipantCapacity();
     }
 
     public function remainingSeats(): int
