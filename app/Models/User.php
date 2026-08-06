@@ -89,4 +89,12 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(WalletDeposit::class);
     }
+
+    /**
+     * @return HasMany<WalletWithdrawal, $this>
+     */
+    public function walletWithdrawals(): HasMany
+    {
+        return $this->hasMany(WalletWithdrawal::class);
+    }
 }

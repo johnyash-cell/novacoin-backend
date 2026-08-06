@@ -46,6 +46,14 @@ class PlatformCryptoWallet extends Model
     }
 
     /**
+     * @return HasMany<WalletWithdrawal, $this>
+     */
+    public function walletWithdrawals(): HasMany
+    {
+        return $this->hasMany(WalletWithdrawal::class);
+    }
+
+    /**
      * @param  Builder<PlatformCryptoWallet>  $query
      * @return Builder<PlatformCryptoWallet>
      */

@@ -286,6 +286,7 @@ curl -X POST "{{baseUrl}}admin/wallet-deposits/1/approve" \
 
 ---
 
-## Later
+## Later / related
 
-Member invest from `available_balance` into investment packages — separate pass.
+- Member invest from `available_balance` into investment packages — see investment packages contract.
+- Member withdrawals (debit on request, admin manual payout) — see [user-wallet-withdrawal-api-contract.md](./user-wallet-withdrawal-api-contract.md).

@@ -148,6 +148,13 @@ class AdminPlatformCryptoWalletController extends Controller
             );
         }
 
+        if ($platformCryptoWallet->walletWithdrawals()->exists()) {
+            return $this->errorResponse(
+                message: 'This platform crypto wallet cannot be deleted because withdrawals already reference it',
+                statusCode: 422,
+            );
+        }
+
         $platformCryptoWallet->delete();
 
         return $this->successResponse(

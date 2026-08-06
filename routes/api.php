@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
 use App\Http\Controllers\Api\Admin\AdminWalletDepositController;
+use App\Http\Controllers\Api\Admin\AdminWalletWithdrawalController;
 use App\Http\Controllers\Api\Auth\UserAuthController;
 use App\Http\Controllers\Api\InvestmentController;
 use App\Http\Controllers\Api\InvestmentPackageController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\PlatformCryptoWalletController;
 use App\Http\Controllers\Api\UserNotificationController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WalletDepositController;
+use App\Http\Controllers\Api\WalletWithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -47,6 +49,9 @@ Route::middleware('auth:api')->group(function (): void {
     Route::get('wallet/deposit-quote', [WalletDepositController::class, 'quote']);
     Route::get('wallet/deposits', [WalletDepositController::class, 'index']);
     Route::post('wallet/deposits', [WalletDepositController::class, 'store']);
+    Route::get('wallet/withdrawals/filter-options', [WalletWithdrawalController::class, 'filterOptions']);
+    Route::get('wallet/withdrawals', [WalletWithdrawalController::class, 'index']);
+    Route::post('wallet/withdrawals', [WalletWithdrawalController::class, 'store']);
 
     Route::get('investment-packages', [InvestmentPackageController::class, 'index']);
     Route::get('investment-packages/{investment_package}', [InvestmentPackageController::class, 'show']);
@@ -108,5 +113,11 @@ Route::prefix('admin')->group(function (): void {
         Route::get('wallet-deposits/{wallet_deposit}', [AdminWalletDepositController::class, 'show']);
         Route::post('wallet-deposits/{wallet_deposit}/approve', [AdminWalletDepositController::class, 'approve']);
         Route::post('wallet-deposits/{wallet_deposit}/decline', [AdminWalletDepositController::class, 'decline']);
+
+        Route::get('wallet-withdrawals/filter-options', [AdminWalletWithdrawalController::class, 'filterOptions']);
+        Route::get('wallet-withdrawals', [AdminWalletWithdrawalController::class, 'index']);
+        Route::get('wallet-withdrawals/{wallet_withdrawal}', [AdminWalletWithdrawalController::class, 'show']);
+        Route::post('wallet-withdrawals/{wallet_withdrawal}/approve', [AdminWalletWithdrawalController::class, 'approve']);
+        Route::post('wallet-withdrawals/{wallet_withdrawal}/decline', [AdminWalletWithdrawalController::class, 'decline']);
     });
 });
