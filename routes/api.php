@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
+use App\Http\Controllers\Api\Admin\AdminUserInvestmentController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
 use App\Http\Controllers\Api\Admin\AdminWalletDepositController;
 use App\Http\Controllers\Api\Admin\AdminWalletWithdrawalController;
@@ -85,6 +86,10 @@ Route::prefix('admin')->group(function (): void {
         Route::get('users/filter-options', [AdminUserController::class, 'filterOptions']);
         Route::get('users/{user}/authentication-login-logs', [AdminAuthenticationLoginLogController::class, 'indexForUser']);
         Route::get('users/{user}/page-visit-logs', [AdminUserPageVisitLogController::class, 'indexForUser']);
+        Route::get('users/{user}/wallet-deposits', [AdminWalletDepositController::class, 'indexForUser']);
+        Route::get('users/{user}/wallet-withdrawals', [AdminWalletWithdrawalController::class, 'indexForUser']);
+        Route::get('users/{user}/investments/filter-options', [AdminUserInvestmentController::class, 'filterOptions']);
+        Route::get('users/{user}/investments', [AdminUserInvestmentController::class, 'index']);
         Route::apiResource('users', AdminUserController::class);
         Route::post('users/{user}/promote-to-admin', [AdminUserController::class, 'promoteToAdmin']);
 

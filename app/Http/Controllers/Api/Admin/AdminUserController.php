@@ -9,10 +9,12 @@ use App\Http\Requests\Api\Admin\StoreUserRequest;
 use App\Http\Requests\Api\Admin\UpdateUserRequest;
 use App\Http\Resources\AdminDirectoryMemberResource;
 use App\Http\Resources\AdminResource;
+use App\Http\Resources\AdminUserProfileResource;
 use App\Http\Resources\AdminUserResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\Admin;
 use App\Models\User;
+use App\Services\Admin\BuildsAdminUserProfileSummary;
 use App\Services\Admin\PaginatesAdminUserDirectoryListing;
 use Illuminate\Http\JsonResponse;
 
@@ -75,11 +77,18 @@ class AdminUserController extends Controller
         );
     }
 
-    public function show(User $user): JsonResponse
-    {
+    public function show(
+        User $user,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        $user->load('adminBackofficeAccount');
+
         return $this->successResponse(
             message: 'User fetched successfully',
-            data: (new AdminUserResource($user->load('adminBackofficeAccount')))->resolve(),
+            data: (new AdminUserProfileResource(
+                $user,
+                $buildsAdminUserProfileSummary->build($user),
+            ))->resolve(),
         );
     }
 

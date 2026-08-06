@@ -5,7 +5,7 @@ namespace App\Http\Requests\Api\Admin;
 use App\Http\Requests\Api\Admin\Concerns\ValidatesOptionalMemberNotifyFlags;
 use App\Http\Requests\Api\ApiFormRequest;
 
-class ApproveWalletWithdrawalRequest extends ApiFormRequest
+class ApproveWalletDepositRequest extends ApiFormRequest
 {
     use ValidatesOptionalMemberNotifyFlags;
 
@@ -19,10 +19,7 @@ class ApproveWalletWithdrawalRequest extends ApiFormRequest
      */
     public function rules(): array
     {
-        return [
-            'outbound_transaction_reference' => ['sometimes', 'nullable', 'string', 'max:255'],
-            ...$this->optionalMemberNotifyFlagRules(),
-        ];
+        return $this->optionalMemberNotifyFlagRules();
     }
 
     protected function prepareForValidation(): void

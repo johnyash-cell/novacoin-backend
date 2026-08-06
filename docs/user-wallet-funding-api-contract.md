@@ -269,7 +269,12 @@ Includes user name/email + proof URL.
 POST {{baseUrl}}admin/wallet-deposits/{id}/approve
 ```
 
-Credits **`usd_amount`** to user wallet via ledger. Idempotent if already approved. Only from `pending_approval`.
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `send_email` | no | `false` | Queue email to member when true |
+| `send_in_app_notification` | no | `false` | Create member inbox notification when true |
+
+Credits **`usd_amount`** to user wallet via ledger. Idempotent if already approved (no second email/notification). Only from `pending_approval`. Notify failures are logged and never block the admin response.
 
 ### Decline
 
@@ -277,11 +282,22 @@ Credits **`usd_amount`** to user wallet via ledger. Idempotent if already approv
 POST {{baseUrl}}admin/wallet-deposits/{id}/decline
 ```
 
-Body optional: `{ "decline_reason": "…" }`. No balance change.
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `decline_reason` | no | — | Shown to member in copy when set |
+| `send_email` | no | `false` | Queue email to member when true |
+| `send_in_app_notification` | no | `false` | Create member inbox notification when true |
+
+No balance change. Idempotent if already declined (no second email/notification).
 
 ```bash
 curl -X POST "{{baseUrl}}admin/wallet-deposits/1/approve" \
-  -H "Authorization: Bearer {{adminToken}}"
+  -H "Authorization: Bearer {{adminToken}}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "send_email": true,
+    "send_in_app_notification": true
+  }'
 ```
 
 ---

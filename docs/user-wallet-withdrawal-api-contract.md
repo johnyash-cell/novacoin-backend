@@ -128,14 +128,23 @@ Includes user name/email + destination address + crypto amount to send.
 POST {{baseUrl}}admin/wallet-withdrawals/{id}/approve
 ```
 
-Body optional: `{ "outbound_transaction_reference": "…" }`.  
-Idempotent if already approved. Only from `pending_approval`. **Does not** change balance (already debited).
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `outbound_transaction_reference` | no | — | Tx hash / memo after manual payout |
+| `send_email` | no | `false` | Queue email to member when true |
+| `send_in_app_notification` | no | `false` | Create member inbox notification when true |
+
+Idempotent if already approved (no second email/notification). Only from `pending_approval`. **Does not** change balance (already debited). Notify failures are logged and never block the admin response.
 
 ```bash
 curl -X POST "{{baseUrl}}admin/wallet-withdrawals/1/approve" \
   -H "Authorization: Bearer {{adminToken}}" \
   -H "Content-Type: application/json" \
-  -d '{"outbound_transaction_reference": "btc-txid-abc123"}'
+  -d '{
+    "outbound_transaction_reference": "btc-txid-abc123",
+    "send_email": true,
+    "send_in_app_notification": true
+  }'
 ```
 
 ### Decline
@@ -144,13 +153,23 @@ curl -X POST "{{baseUrl}}admin/wallet-withdrawals/1/approve" \
 POST {{baseUrl}}admin/wallet-withdrawals/{id}/decline
 ```
 
-Body optional: `{ "decline_reason": "…" }`. Refunds held USD. Idempotent if already declined. Cannot decline after approved.
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `decline_reason` | no | — | Shown to member in copy when set |
+| `send_email` | no | `false` | Queue email to member when true |
+| `send_in_app_notification` | no | `false` | Create member inbox notification when true |
+
+Refunds held USD. Idempotent if already declined (no second email/notification). Cannot decline after approved.
 
 ```bash
 curl -X POST "{{baseUrl}}admin/wallet-withdrawals/1/decline" \
   -H "Authorization: Bearer {{adminToken}}" \
   -H "Content-Type: application/json" \
-  -d '{"decline_reason": "Destination address invalid"}'
+  -d '{
+    "decline_reason": "Destination address invalid",
+    "send_email": true,
+    "send_in_app_notification": true
+  }'
 ```
 
 ---

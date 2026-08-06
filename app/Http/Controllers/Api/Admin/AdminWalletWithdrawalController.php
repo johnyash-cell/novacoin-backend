@@ -10,9 +10,12 @@ use App\Http\Requests\Api\Admin\IndexAdminWalletWithdrawalsRequest;
 use App\Http\Resources\AdminWalletWithdrawalResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\Admin;
+use App\Models\User;
 use App\Models\WalletWithdrawal;
 use App\Services\Wallet\ApprovesWalletWithdrawal;
+use App\Services\Wallet\BuildsWalletReviewOutcomeMemberMessage;
 use App\Services\Wallet\DeclinesWalletWithdrawal;
+use App\Services\Wallet\NotifiesMemberAboutWalletReviewOutcome;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use RuntimeException;
@@ -50,12 +53,31 @@ class AdminWalletWithdrawalController extends Controller
 
     public function index(IndexAdminWalletWithdrawalsRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        return $this->withdrawalIndexResponse($request->validated());
+    }
+
+    public function indexForUser(IndexAdminWalletWithdrawalsRequest $request, User $user): JsonResponse
+    {
+        return $this->withdrawalIndexResponse(
+            validated: $request->validated(),
+            scopedUser: $user,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function withdrawalIndexResponse(array $validated, ?User $scopedUser = null): JsonResponse
+    {
         $sortBy = $validated['sort_by'] ?? 'newest';
         $perPage = $validated['per_page'] ?? 10;
 
         $withdrawals = WalletWithdrawal::query()
             ->with(['user', 'platformCryptoWallet'])
+            ->when(
+                $scopedUser !== null,
+                fn ($query) => $query->where('user_id', $scopedUser->id),
+            )
             ->search($validated['search'] ?? null)
             ->when(
                 filled($validated['status'] ?? null),
@@ -75,6 +97,7 @@ class AdminWalletWithdrawalController extends Controller
                     'last_page' => $withdrawals->lastPage(),
                 ],
                 'filters' => [
+                    'user_id' => $scopedUser?->id,
                     'search' => $validated['search'] ?? null,
                     'status' => $validated['status'] ?? null,
                     'sort_by' => $sortBy,
@@ -97,9 +120,12 @@ class AdminWalletWithdrawalController extends Controller
         ApproveWalletWithdrawalRequest $request,
         WalletWithdrawal $walletWithdrawal,
         ApprovesWalletWithdrawal $approvesWalletWithdrawal,
+        BuildsWalletReviewOutcomeMemberMessage $buildsWalletReviewOutcomeMemberMessage,
+        NotifiesMemberAboutWalletReviewOutcome $notifiesMemberAboutWalletReviewOutcome,
     ): JsonResponse {
         /** @var Admin $admin */
         $admin = Auth::guard('admin')->user();
+        $wasPendingApproval = $walletWithdrawal->status === WalletWithdrawalStatus::PendingApproval->value;
 
         try {
             $approvedWithdrawal = $approvesWalletWithdrawal->approve(
@@ -114,6 +140,22 @@ class AdminWalletWithdrawalController extends Controller
             );
         }
 
+        if ($wasPendingApproval) {
+            $approvedWithdrawal->loadMissing('user');
+            $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedWithdrawal($approvedWithdrawal);
+
+            if ($approvedWithdrawal->user !== null) {
+                $notifiesMemberAboutWalletReviewOutcome->notify(
+                    admin: $admin,
+                    user: $approvedWithdrawal->user,
+                    sendEmail: $request->shouldSendEmail(),
+                    sendInAppNotification: $request->shouldSendInAppNotification(),
+                    title: $copy['title'],
+                    message: $copy['message'],
+                );
+            }
+        }
+
         return $this->successResponse(
             message: 'Wallet withdrawal approved successfully',
             data: (new AdminWalletWithdrawalResource($approvedWithdrawal))->resolve(),
@@ -124,9 +166,12 @@ class AdminWalletWithdrawalController extends Controller
         DeclineWalletWithdrawalRequest $request,
         WalletWithdrawal $walletWithdrawal,
         DeclinesWalletWithdrawal $declinesWalletWithdrawal,
+        BuildsWalletReviewOutcomeMemberMessage $buildsWalletReviewOutcomeMemberMessage,
+        NotifiesMemberAboutWalletReviewOutcome $notifiesMemberAboutWalletReviewOutcome,
     ): JsonResponse {
         /** @var Admin $admin */
         $admin = Auth::guard('admin')->user();
+        $wasPendingApproval = $walletWithdrawal->status === WalletWithdrawalStatus::PendingApproval->value;
 
         try {
             $declinedWithdrawal = $declinesWalletWithdrawal->decline(
@@ -139,6 +184,22 @@ class AdminWalletWithdrawalController extends Controller
                 message: $exception->getMessage(),
                 statusCode: 422,
             );
+        }
+
+        if ($wasPendingApproval) {
+            $declinedWithdrawal->loadMissing('user');
+            $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedWithdrawal($declinedWithdrawal);
+
+            if ($declinedWithdrawal->user !== null) {
+                $notifiesMemberAboutWalletReviewOutcome->notify(
+                    admin: $admin,
+                    user: $declinedWithdrawal->user,
+                    sendEmail: $request->shouldSendEmail(),
+                    sendInAppNotification: $request->shouldSendInAppNotification(),
+                    title: $copy['title'],
+                    message: $copy['message'],
+                );
+            }
         }
 
         return $this->successResponse(

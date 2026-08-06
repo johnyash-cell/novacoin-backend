@@ -2,7 +2,10 @@
 
 use App\Enums\WalletDepositStatus;
 use App\Enums\WalletLedgerEntryType;
+use App\Mail\WalletReviewOutcomeMail;
 use App\Models\Admin;
+use App\Models\AdminNotification;
+use App\Models\AdminNotificationRecipient;
 use App\Models\PlatformCryptoWallet;
 use App\Models\User;
 use App\Models\UserWallet;
@@ -11,6 +14,7 @@ use App\Models\WalletLedgerEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -103,6 +107,7 @@ it('submits a deposit with proof without crediting balance', function () {
 });
 
 it('approves a deposit and credits the usd amount once', function () {
+    Mail::fake();
     $user = User::factory()->create();
     $wallet = PlatformCryptoWallet::factory()->create();
     $deposit = WalletDeposit::factory()->pendingApproval()->create([
@@ -126,6 +131,8 @@ it('approves a deposit and credits the usd amount once', function () {
         'wallet_deposit_id' => $deposit->id,
         'amount' => 1000,
     ]);
+    Mail::assertNothingQueued();
+    $this->assertDatabaseCount('admin_notifications', 0);
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
         ->postJson('/api/admin/wallet-deposits/'.$deposit->id.'/approve')
@@ -133,6 +140,33 @@ it('approves a deposit and credits the usd amount once', function () {
 
     expect((float) UserWallet::query()->where('user_id', $user->id)->value('available_balance'))->toBe(1000.0);
     expect(WalletLedgerEntry::query()->where('wallet_deposit_id', $deposit->id)->count())->toBe(1);
+});
+
+it('notifies the member by email and in-app when admin opts in on deposit approve', function () {
+    Mail::fake();
+    $user = User::factory()->create();
+    $deposit = WalletDeposit::factory()->pendingApproval()->create([
+        'user_id' => $user->id,
+        'usd_amount' => 1000,
+    ]);
+    $adminToken = fundingAdminToken();
+
+    $this->withHeader('Authorization', 'Bearer '.$adminToken)
+        ->postJson('/api/admin/wallet-deposits/'.$deposit->id.'/approve', [
+            'send_email' => true,
+            'send_in_app_notification' => true,
+        ])
+        ->assertSuccessful();
+
+    Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
+        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit approved';
+    });
+    $this->assertDatabaseCount('admin_notifications', 1);
+    $this->assertDatabaseHas('admin_notification_recipients', [
+        'user_id' => $user->id,
+        'admin_notification_id' => AdminNotification::query()->value('id'),
+    ]);
+    expect(AdminNotificationRecipient::query()->where('user_id', $user->id)->count())->toBe(1);
 });
 
 it('declines a deposit without changing balance', function () {

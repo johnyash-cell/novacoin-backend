@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Api\Admin;
 
+use App\Http\Requests\Api\Admin\Concerns\ValidatesOptionalMemberNotifyFlags;
 use App\Http\Requests\Api\ApiFormRequest;
 
 class DeclineWalletDepositRequest extends ApiFormRequest
 {
+    use ValidatesOptionalMemberNotifyFlags;
+
     public function authorize(): bool
     {
         return true;
@@ -18,6 +21,12 @@ class DeclineWalletDepositRequest extends ApiFormRequest
     {
         return [
             'decline_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            ...$this->optionalMemberNotifyFlagRules(),
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareOptionalMemberNotifyFlagsForValidation();
     }
 }

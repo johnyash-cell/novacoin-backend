@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\WalletDepositStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\Admin\ApproveWalletDepositRequest;
 use App\Http\Requests\Api\Admin\DeclineWalletDepositRequest;
 use App\Http\Requests\Api\Admin\IndexAdminWalletDepositsRequest;
 use App\Http\Resources\AdminWalletDepositResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\Admin;
+use App\Models\User;
 use App\Models\WalletDeposit;
+use App\Services\Wallet\BuildsWalletReviewOutcomeMemberMessage;
 use App\Services\Wallet\CreditsUserWalletFromApprovedDeposit;
+use App\Services\Wallet\NotifiesMemberAboutWalletReviewOutcome;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use RuntimeException;
@@ -48,12 +52,31 @@ class AdminWalletDepositController extends Controller
 
     public function index(IndexAdminWalletDepositsRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        return $this->depositIndexResponse($request->validated());
+    }
+
+    public function indexForUser(IndexAdminWalletDepositsRequest $request, User $user): JsonResponse
+    {
+        return $this->depositIndexResponse(
+            validated: $request->validated(),
+            scopedUser: $user,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function depositIndexResponse(array $validated, ?User $scopedUser = null): JsonResponse
+    {
         $sortBy = $validated['sort_by'] ?? 'newest';
         $perPage = $validated['per_page'] ?? 10;
 
         $deposits = WalletDeposit::query()
             ->with(['user', 'platformCryptoWallet'])
+            ->when(
+                $scopedUser !== null,
+                fn ($query) => $query->where('user_id', $scopedUser->id),
+            )
             ->search($validated['search'] ?? null)
             ->when(
                 filled($validated['status'] ?? null),
@@ -73,6 +96,7 @@ class AdminWalletDepositController extends Controller
                     'last_page' => $deposits->lastPage(),
                 ],
                 'filters' => [
+                    'user_id' => $scopedUser?->id,
                     'search' => $validated['search'] ?? null,
                     'status' => $validated['status'] ?? null,
                     'sort_by' => $sortBy,
@@ -92,11 +116,15 @@ class AdminWalletDepositController extends Controller
     }
 
     public function approve(
+        ApproveWalletDepositRequest $request,
         WalletDeposit $walletDeposit,
         CreditsUserWalletFromApprovedDeposit $creditsUserWalletFromApprovedDeposit,
+        BuildsWalletReviewOutcomeMemberMessage $buildsWalletReviewOutcomeMemberMessage,
+        NotifiesMemberAboutWalletReviewOutcome $notifiesMemberAboutWalletReviewOutcome,
     ): JsonResponse {
         /** @var Admin $admin */
         $admin = Auth::guard('admin')->user();
+        $wasPendingApproval = $walletDeposit->status === WalletDepositStatus::PendingApproval->value;
 
         try {
             $approvedDeposit = $creditsUserWalletFromApprovedDeposit->approve($walletDeposit, $admin);
@@ -105,6 +133,22 @@ class AdminWalletDepositController extends Controller
                 message: $exception->getMessage(),
                 statusCode: 422,
             );
+        }
+
+        if ($wasPendingApproval) {
+            $approvedDeposit->loadMissing('user');
+            $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedDeposit($approvedDeposit);
+
+            if ($approvedDeposit->user !== null) {
+                $notifiesMemberAboutWalletReviewOutcome->notify(
+                    admin: $admin,
+                    user: $approvedDeposit->user,
+                    sendEmail: $request->shouldSendEmail(),
+                    sendInAppNotification: $request->shouldSendInAppNotification(),
+                    title: $copy['title'],
+                    message: $copy['message'],
+                );
+            }
         }
 
         return $this->successResponse(
@@ -116,6 +160,8 @@ class AdminWalletDepositController extends Controller
     public function decline(
         DeclineWalletDepositRequest $request,
         WalletDeposit $walletDeposit,
+        BuildsWalletReviewOutcomeMemberMessage $buildsWalletReviewOutcomeMemberMessage,
+        NotifiesMemberAboutWalletReviewOutcome $notifiesMemberAboutWalletReviewOutcome,
     ): JsonResponse {
         if ($walletDeposit->status === WalletDepositStatus::Approved->value) {
             return $this->errorResponse(
@@ -148,9 +194,24 @@ class AdminWalletDepositController extends Controller
             'reviewed_at' => now(),
         ]);
 
+        $declinedDeposit = $walletDeposit->fresh(['user', 'platformCryptoWallet']);
+        $declinedDeposit?->loadMissing('user');
+        $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedDeposit($declinedDeposit ?? $walletDeposit);
+
+        if ($declinedDeposit?->user !== null) {
+            $notifiesMemberAboutWalletReviewOutcome->notify(
+                admin: $admin,
+                user: $declinedDeposit->user,
+                sendEmail: $request->shouldSendEmail(),
+                sendInAppNotification: $request->shouldSendInAppNotification(),
+                title: $copy['title'],
+                message: $copy['message'],
+            );
+        }
+
         return $this->successResponse(
             message: 'Wallet deposit declined successfully',
-            data: (new AdminWalletDepositResource($walletDeposit->fresh(['user', 'platformCryptoWallet'])))->resolve(),
+            data: (new AdminWalletDepositResource($declinedDeposit ?? $walletDeposit))->resolve(),
         );
     }
 }
