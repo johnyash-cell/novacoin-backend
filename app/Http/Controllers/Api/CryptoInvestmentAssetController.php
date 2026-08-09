@@ -10,10 +10,12 @@ use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\User;
 use App\Services\CryptoInvestment\CalculatesCryptoInvestmentFeeAndExposure;
 use App\Services\CryptoInvestment\DebitsUserWalletForCryptoAssetInvestment;
+use App\Services\CryptoInvestment\FetchesCoinGeckoMarketSnapshotsForAssetIds;
 use App\Services\CryptoInvestment\ResolvesCryptoInvestmentProgramSettings;
 use App\Services\Wallet\FetchesCoinGeckoUsdAssetPrice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Throwable;
 
 class CryptoInvestmentAssetController extends Controller
 {
@@ -29,25 +31,35 @@ class CryptoInvestmentAssetController extends Controller
 
     public function index(
         ResolvesCryptoInvestmentProgramSettings $resolvesCryptoInvestmentProgramSettings,
+        FetchesCoinGeckoMarketSnapshotsForAssetIds $fetchesCoinGeckoMarketSnapshotsForAssetIds,
         FetchesCoinGeckoUsdAssetPrice $fetchesCoinGeckoUsdAssetPrice,
     ): JsonResponse {
         $settings = $resolvesCryptoInvestmentProgramSettings->currentForMember();
+        $supportedAssets = $resolvesCryptoInvestmentProgramSettings->supportedAssets();
+        $assetIds = array_column($supportedAssets, 'coingecko_asset_id');
+        $marketSnapshots = $fetchesCoinGeckoMarketSnapshotsForAssetIds->fetchByAssetIds($assetIds);
         $assets = [];
 
-        foreach ($resolvesCryptoInvestmentProgramSettings->supportedAssets() as $asset) {
-            $currentPriceUsd = null;
+        foreach ($supportedAssets as $asset) {
+            $snapshot = $marketSnapshots[$asset['coingecko_asset_id']] ?? null;
+            $currentPriceUsd = $snapshot['current_price_usd'] ?? null;
 
-            try {
-                $currentPriceUsd = $fetchesCoinGeckoUsdAssetPrice->fetchUsdPricePerUnit(
-                    $asset['coingecko_asset_id'],
-                );
-            } catch (\Throwable) {
-                $currentPriceUsd = null;
+            // Fallback keeps invest truth available if markets enrichment missed this id.
+            if ($currentPriceUsd === null) {
+                try {
+                    $currentPriceUsd = $fetchesCoinGeckoUsdAssetPrice->fetchUsdPricePerUnit(
+                        $asset['coingecko_asset_id'],
+                    );
+                } catch (Throwable) {
+                    $currentPriceUsd = null;
+                }
             }
 
             $assets[] = [
                 ...$asset,
                 'current_price_usd' => $currentPriceUsd,
+                'price_change_percentage_24h' => $snapshot['price_change_percentage_24h'] ?? null,
+                'image_url' => $snapshot['image_url'] ?? null,
                 'can_invest' => $resolvesCryptoInvestmentProgramSettings->isEnabled() && $currentPriceUsd !== null,
             ];
         }

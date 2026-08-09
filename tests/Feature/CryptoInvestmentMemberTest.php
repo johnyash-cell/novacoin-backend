@@ -10,24 +10,34 @@ use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
 use App\Services\CryptoInvestment\CalculatesCryptoInvestmentFeeAndExposure;
+use App\Services\CryptoInvestment\FetchesCoinGeckoMarketSnapshotsForAssetIds;
 use App\Services\CryptoInvestment\UpdatesCryptoInvestmentProgramSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    Cache::flush();
+
     Http::fake([
         'api.coingecko.com/api/v3/coins/markets*' => Http::response([
             [
                 'id' => 'bitcoin',
                 'symbol' => 'btc',
                 'name' => 'Bitcoin',
+                'current_price' => 50000,
+                'price_change_percentage_24h' => 0.2,
+                'image' => 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png',
             ],
             [
                 'id' => 'ethereum',
                 'symbol' => 'eth',
                 'name' => 'Ethereum',
+                'current_price' => 3000,
+                'price_change_percentage_24h' => -1.35,
+                'image' => 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png',
             ],
         ], 200),
         'api.coingecko.com/api/v3/simple/price*' => Http::response([
@@ -112,6 +122,29 @@ it('lists supported crypto assets with live prices for members', function () {
         ->assertJsonPath('data.is_enabled', true)
         ->assertJsonPath('data.assets.0.coingecko_asset_id', 'bitcoin')
         ->assertJsonPath('data.assets.0.current_price_usd', 50000)
+        ->assertJsonPath('data.assets.0.price_change_percentage_24h', 0.2)
+        ->assertJsonPath(
+            'data.assets.0.image_url',
+            'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png',
+        )
+        ->assertJsonPath('data.assets.0.can_invest', true)
+        ->assertJsonPath('data.assets.1.price_change_percentage_24h', -1.35);
+});
+
+it('keeps the asset catalog healthy when market enrichment fails', function () {
+    $this->mock(FetchesCoinGeckoMarketSnapshotsForAssetIds::class, function ($mock): void {
+        $mock->shouldReceive('fetchByAssetIds')->once()->andReturn([]);
+    });
+
+    $token = cryptoAssetMemberToken();
+
+    $this->withHeader('Authorization', 'Bearer '.$token)
+        ->getJson('/api/crypto-investment-assets')
+        ->assertSuccessful()
+        ->assertJsonPath('data.assets.0.coingecko_asset_id', 'bitcoin')
+        ->assertJsonPath('data.assets.0.current_price_usd', 50000)
+        ->assertJsonPath('data.assets.0.price_change_percentage_24h', null)
+        ->assertJsonPath('data.assets.0.image_url', null)
         ->assertJsonPath('data.assets.0.can_invest', true);
 });
 
