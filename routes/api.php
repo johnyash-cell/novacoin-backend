@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\Activity\UserPageVisitController;
 use App\Http\Controllers\Api\Admin\AdminAuthController;
 use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminCryptoInvestmentController;
+use App\Http\Controllers\Api\Admin\AdminCryptoInvestmentSettingsController;
 use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
 use App\Http\Controllers\Api\Admin\AdminInvestmentPackageInvestmentController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
@@ -17,6 +19,8 @@ use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
 use App\Http\Controllers\Api\Admin\AdminWalletDepositController;
 use App\Http\Controllers\Api\Admin\AdminWalletWithdrawalController;
 use App\Http\Controllers\Api\Auth\UserAuthController;
+use App\Http\Controllers\Api\CryptoInvestmentAssetController;
+use App\Http\Controllers\Api\CryptoInvestmentController;
 use App\Http\Controllers\Api\InvestmentController;
 use App\Http\Controllers\Api\InvestmentPackageController;
 use App\Http\Controllers\Api\PlatformCryptoWalletController;
@@ -70,6 +74,17 @@ Route::middleware(['auth:api', EnsureMemberAccountIsNotRestricted::class])->grou
     Route::get('investments', [InvestmentController::class, 'index']);
     Route::get('investments/{investment}/daily-earnings', [InvestmentController::class, 'dailyEarnings']);
     Route::get('investments/{investment}', [InvestmentController::class, 'show']);
+
+    Route::get('crypto-investment-settings', [CryptoInvestmentAssetController::class, 'settings']);
+    Route::get('crypto-investment-assets', [CryptoInvestmentAssetController::class, 'index']);
+    Route::get('crypto-investment-assets/{coingecko_asset_id}/invest-quote', [CryptoInvestmentAssetController::class, 'investQuote'])
+        ->where('coingecko_asset_id', '[A-Za-z0-9-]+');
+    Route::post('crypto-investment-assets/{coingecko_asset_id}/invest', [CryptoInvestmentAssetController::class, 'invest'])
+        ->where('coingecko_asset_id', '[A-Za-z0-9-]+');
+
+    Route::get('crypto-investments', [CryptoInvestmentController::class, 'index']);
+    Route::get('crypto-investments/{crypto_investment}/daily-valuations', [CryptoInvestmentController::class, 'dailyValuations']);
+    Route::get('crypto-investments/{crypto_investment}', [CryptoInvestmentController::class, 'show']);
 
     Route::get('referral', [ReferralController::class, 'show']);
     Route::get('referral/referred-users', [ReferralController::class, 'referredUsers']);
@@ -130,6 +145,12 @@ Route::prefix('admin')->group(function (): void {
         Route::patch('investment-packages/{investment_package}/availability-status', [AdminInvestmentPackageController::class, 'updateAvailabilityStatus']);
         Route::patch('investment-packages/{investment_package}/featured', [AdminInvestmentPackageController::class, 'updateFeatured']);
         Route::apiResource('investment-packages', AdminInvestmentPackageController::class);
+
+        Route::get('crypto-investment-settings/coin-options', [AdminCryptoInvestmentSettingsController::class, 'coinOptions']);
+        Route::get('crypto-investment-settings', [AdminCryptoInvestmentSettingsController::class, 'show']);
+        Route::put('crypto-investment-settings', [AdminCryptoInvestmentSettingsController::class, 'update']);
+        Route::get('crypto-investments/filter-options', [AdminCryptoInvestmentController::class, 'filterOptions']);
+        Route::get('crypto-investments', [AdminCryptoInvestmentController::class, 'index']);
 
         Route::get('platform-crypto-wallets/asset-options', [AdminPlatformCryptoWalletController::class, 'assetOptions']);
         Route::get('platform-crypto-wallets/filter-options', [AdminPlatformCryptoWalletController::class, 'filterOptions']);

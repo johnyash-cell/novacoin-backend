@@ -12,3 +12,6 @@ Schedule::command('investment-packages:expire-due')->everyMinute();
 Schedule::command('investments:end-due')
     ->everyMinute()
     ->withoutOverlapping();
+Schedule::command('crypto-investments:mark-to-market-and-settle')
+    ->everyMinute()
+    ->withoutOverlapping();

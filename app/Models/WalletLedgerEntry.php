@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'balance_after',
     'wallet_deposit_id',
     'investment_id',
+    'crypto_investment_id',
     'wallet_withdrawal_id',
     'referral_reward_payout_id',
     'description',
@@ -62,6 +63,14 @@ class WalletLedgerEntry extends Model
     public function investment(): BelongsTo
     {
         return $this->belongsTo(Investment::class);
+    }
+
+    /**
+     * @return BelongsTo<CryptoInvestment, $this>
+     */
+    public function cryptoInvestment(): BelongsTo
+    {
+        return $this->belongsTo(CryptoInvestment::class);
     }
 
     /**
