@@ -2,12 +2,19 @@
 
 namespace App\Services\Auth;
 
+use App\Enums\UserAccountRestrictionLogAction;
 use App\Enums\UserAccountStatus;
 use App\Models\User;
+use App\Services\Admin\RecordsUserAccountRestrictionLog;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ResolvesUserAccountAccessRestrictionMessage
 {
+    public function __construct(
+        private RecordsUserAccountRestrictionLog $recordsUserAccountRestrictionLog,
+    ) {}
+
     /**
      * Clears an expired timed suspension, then returns a member-facing block message when access is denied.
      */
@@ -57,12 +64,27 @@ class ResolvesUserAccountAccessRestrictionMessage
         }
 
         // Timed suspension ended — restore access without waiting for admin unsuspend.
-        $user->forceFill([
-            'account_status' => UserAccountStatus::Active->value,
-            'account_status_reason' => null,
-            'account_status_changed_at' => now(),
-            'account_status_changed_by_admin_id' => null,
-            'suspended_until' => null,
-        ])->save();
+        DB::transaction(function () use ($user): void {
+            $previousStatus = (string) $user->account_status;
+
+            $user->forceFill([
+                'account_status' => UserAccountStatus::Active->value,
+                'account_status_reason' => null,
+                'account_status_changed_at' => now(),
+                'account_status_changed_by_admin_id' => null,
+                'suspended_until' => null,
+            ])->save();
+
+            $this->recordsUserAccountRestrictionLog->record(
+                user: $user,
+                action: UserAccountRestrictionLogAction::SuspensionExpired,
+                previousAccountStatus: $previousStatus,
+                newAccountStatus: UserAccountStatus::Active->value,
+                performedByAdmin: null,
+                reason: 'Suspension period ended automatically',
+            );
+        });
+
+        $user->refresh();
     }
 }

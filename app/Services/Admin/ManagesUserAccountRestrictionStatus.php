@@ -2,29 +2,48 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\UserAccountRestrictionLogAction;
 use App\Enums\UserAccountStatus;
 use App\Models\Admin;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class ManagesUserAccountRestrictionStatus
 {
+    public function __construct(
+        private RecordsUserAccountRestrictionLog $recordsUserAccountRestrictionLog,
+    ) {}
+
     public function ban(User $user, Admin $admin, ?string $reason = null): User
     {
         if ((string) $user->account_status === UserAccountStatus::Banned->value) {
             throw new RuntimeException('This user account is already banned');
         }
 
-        $user->forceFill([
-            'account_status' => UserAccountStatus::Banned->value,
-            'account_status_reason' => $reason,
-            'account_status_changed_at' => now(),
-            'account_status_changed_by_admin_id' => $admin->id,
-            'suspended_until' => null,
-        ])->save();
+        return DB::transaction(function () use ($user, $admin, $reason): User {
+            $previousStatus = (string) ($user->account_status ?? UserAccountStatus::Active->value);
 
-        return $user->fresh();
+            $user->forceFill([
+                'account_status' => UserAccountStatus::Banned->value,
+                'account_status_reason' => $reason,
+                'account_status_changed_at' => now(),
+                'account_status_changed_by_admin_id' => $admin->id,
+                'suspended_until' => null,
+            ])->save();
+
+            $this->recordsUserAccountRestrictionLog->record(
+                user: $user,
+                action: UserAccountRestrictionLogAction::Ban,
+                previousAccountStatus: $previousStatus,
+                newAccountStatus: UserAccountStatus::Banned->value,
+                performedByAdmin: $admin,
+                reason: $reason,
+            );
+
+            return $user->fresh() ?? $user;
+        });
     }
 
     public function suspend(
@@ -37,15 +56,29 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Suspension end time must be in the future');
         }
 
-        $user->forceFill([
-            'account_status' => UserAccountStatus::Suspended->value,
-            'account_status_reason' => $reason,
-            'account_status_changed_at' => now(),
-            'account_status_changed_by_admin_id' => $admin->id,
-            'suspended_until' => $suspendedUntil,
-        ])->save();
+        return DB::transaction(function () use ($user, $admin, $suspendedUntil, $reason): User {
+            $previousStatus = (string) ($user->account_status ?? UserAccountStatus::Active->value);
 
-        return $user->fresh();
+            $user->forceFill([
+                'account_status' => UserAccountStatus::Suspended->value,
+                'account_status_reason' => $reason,
+                'account_status_changed_at' => now(),
+                'account_status_changed_by_admin_id' => $admin->id,
+                'suspended_until' => $suspendedUntil,
+            ])->save();
+
+            $this->recordsUserAccountRestrictionLog->record(
+                user: $user,
+                action: UserAccountRestrictionLogAction::Suspend,
+                previousAccountStatus: $previousStatus,
+                newAccountStatus: UserAccountStatus::Suspended->value,
+                performedByAdmin: $admin,
+                reason: $reason,
+                suspendedUntil: $suspendedUntil,
+            );
+
+            return $user->fresh() ?? $user;
+        });
     }
 
     public function unsuspend(User $user, Admin $admin, ?string $reason = null): User
@@ -54,15 +87,28 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Only suspended user accounts can be unsuspended');
         }
 
-        $user->forceFill([
-            'account_status' => UserAccountStatus::Active->value,
-            'account_status_reason' => $reason,
-            'account_status_changed_at' => now(),
-            'account_status_changed_by_admin_id' => $admin->id,
-            'suspended_until' => null,
-        ])->save();
+        return DB::transaction(function () use ($user, $admin, $reason): User {
+            $previousStatus = (string) $user->account_status;
 
-        return $user->fresh();
+            $user->forceFill([
+                'account_status' => UserAccountStatus::Active->value,
+                'account_status_reason' => $reason,
+                'account_status_changed_at' => now(),
+                'account_status_changed_by_admin_id' => $admin->id,
+                'suspended_until' => null,
+            ])->save();
+
+            $this->recordsUserAccountRestrictionLog->record(
+                user: $user,
+                action: UserAccountRestrictionLogAction::Unsuspend,
+                previousAccountStatus: $previousStatus,
+                newAccountStatus: UserAccountStatus::Active->value,
+                performedByAdmin: $admin,
+                reason: $reason,
+            );
+
+            return $user->fresh() ?? $user;
+        });
     }
 
     public function reactivate(User $user, Admin $admin, ?string $reason = null): User
@@ -71,14 +117,27 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Only banned user accounts can be reactivated');
         }
 
-        $user->forceFill([
-            'account_status' => UserAccountStatus::Active->value,
-            'account_status_reason' => $reason,
-            'account_status_changed_at' => now(),
-            'account_status_changed_by_admin_id' => $admin->id,
-            'suspended_until' => null,
-        ])->save();
+        return DB::transaction(function () use ($user, $admin, $reason): User {
+            $previousStatus = (string) $user->account_status;
 
-        return $user->fresh();
+            $user->forceFill([
+                'account_status' => UserAccountStatus::Active->value,
+                'account_status_reason' => $reason,
+                'account_status_changed_at' => now(),
+                'account_status_changed_by_admin_id' => $admin->id,
+                'suspended_until' => null,
+            ])->save();
+
+            $this->recordsUserAccountRestrictionLog->record(
+                user: $user,
+                action: UserAccountRestrictionLogAction::Reactivate,
+                previousAccountStatus: $previousStatus,
+                newAccountStatus: UserAccountStatus::Active->value,
+                performedByAdmin: $admin,
+                reason: $reason,
+            );
+
+            return $user->fresh() ?? $user;
+        });
     }
 }

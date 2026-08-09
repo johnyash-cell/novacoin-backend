@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
 use App\Http\Controllers\Api\Admin\AdminReferralRewardPayoutController;
 use App\Http\Controllers\Api\Admin\AdminReferralSettingsController;
+use App\Http\Controllers\Api\Admin\AdminUserAccountRestrictionLogController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminUserInvestmentController;
 use App\Http\Controllers\Api\Admin\AdminUserPageVisitLogController;
@@ -95,6 +96,8 @@ Route::prefix('admin')->group(function (): void {
         Route::post('admins', [AdminController::class, 'store']);
 
         Route::get('users/filter-options', [AdminUserController::class, 'filterOptions']);
+        Route::get('users/{user}/account-restriction-logs/filter-options', [AdminUserAccountRestrictionLogController::class, 'filterOptions']);
+        Route::get('users/{user}/account-restriction-logs', [AdminUserAccountRestrictionLogController::class, 'indexForUser']);
         Route::get('users/{user}/authentication-login-logs', [AdminAuthenticationLoginLogController::class, 'indexForUser']);
         Route::get('users/{user}/page-visit-logs', [AdminUserPageVisitLogController::class, 'indexForUser']);
         Route::get('users/{user}/wallet-deposits', [AdminWalletDepositController::class, 'indexForUser']);
