@@ -142,9 +142,12 @@ class AdminWalletWithdrawalController extends Controller
 
         if ($wasPendingApproval) {
             $approvedWithdrawal->loadMissing('user');
-            $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedWithdrawal($approvedWithdrawal);
 
             if ($approvedWithdrawal->user !== null) {
+                $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedWithdrawal(
+                    $approvedWithdrawal->user,
+                    $approvedWithdrawal,
+                );
                 $notifiesMemberAboutWalletReviewOutcome->notify(
                     admin: $admin,
                     user: $approvedWithdrawal->user,
@@ -188,9 +191,12 @@ class AdminWalletWithdrawalController extends Controller
 
         if ($wasPendingApproval) {
             $declinedWithdrawal->loadMissing('user');
-            $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedWithdrawal($declinedWithdrawal);
 
             if ($declinedWithdrawal->user !== null) {
+                $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedWithdrawal(
+                    $declinedWithdrawal->user,
+                    $declinedWithdrawal,
+                );
                 $notifiesMemberAboutWalletReviewOutcome->notify(
                     admin: $admin,
                     user: $declinedWithdrawal->user,

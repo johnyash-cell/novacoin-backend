@@ -132,7 +132,9 @@ it('approves a deposit and credits the usd amount once', function () {
         'amount' => 1000,
     ]);
     Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit approved';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'deposit was approved')
+            && str_contains($mail->emailBody, 'Hi ');
     });
     $this->assertDatabaseCount('admin_notifications', 0);
 
@@ -179,7 +181,9 @@ it('notifies the member by email and in-app when admin opts in on deposit approv
         ->assertSuccessful();
 
     Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit approved';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'deposit was approved')
+            && str_contains($mail->emailBody, 'Hi ');
     });
     $this->assertDatabaseCount('admin_notifications', 1);
     $this->assertDatabaseHas('admin_notification_recipients', [

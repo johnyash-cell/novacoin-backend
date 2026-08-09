@@ -97,7 +97,7 @@ class PaysReferrerRewardForApprovedDeposit
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $referrer,
-            $this->composesMemberLifecycleEmailCopy->referralRewardPaid($payout),
+            $this->composesMemberLifecycleEmailCopy->referralRewardPaid($referrer, $payout, $referredUser),
         );
     }
 }

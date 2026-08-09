@@ -102,7 +102,7 @@ class SubmitsWalletWithdrawalRequest
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $user,
-            $this->composesMemberLifecycleEmailCopy->withdrawalSubmitted($withdrawal),
+            $this->composesMemberLifecycleEmailCopy->withdrawalSubmitted($user, $withdrawal),
         );
 
         return $withdrawal;

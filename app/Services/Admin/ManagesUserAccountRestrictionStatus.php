@@ -51,7 +51,7 @@ class ManagesUserAccountRestrictionStatus
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $bannedUser,
-            $this->composesMemberLifecycleEmailCopy->accountBanned(),
+            $this->composesMemberLifecycleEmailCopy->accountBanned($bannedUser, $reason),
         );
 
         return $bannedUser;
@@ -95,7 +95,7 @@ class ManagesUserAccountRestrictionStatus
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $suspendedUser,
-            $this->composesMemberLifecycleEmailCopy->accountSuspended($untilLabel),
+            $this->composesMemberLifecycleEmailCopy->accountSuspended($suspendedUser, $untilLabel, $reason),
         );
 
         return $suspendedUser;
@@ -132,7 +132,7 @@ class ManagesUserAccountRestrictionStatus
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $unsuspendedUser,
-            $this->composesMemberLifecycleEmailCopy->accountUnsuspended(),
+            $this->composesMemberLifecycleEmailCopy->accountUnsuspended($unsuspendedUser, $reason),
         );
 
         return $unsuspendedUser;
@@ -169,7 +169,7 @@ class ManagesUserAccountRestrictionStatus
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $reactivatedUser,
-            $this->composesMemberLifecycleEmailCopy->accountReactivated(),
+            $this->composesMemberLifecycleEmailCopy->accountReactivated($reactivatedUser, $reason),
         );
 
         return $reactivatedUser;

@@ -117,6 +117,7 @@ class SettlesMaturedCryptoInvestmentPayoutToUserWallet
         $this->sendsMemberTransactionalEmail->sendCopy(
             $settlement['user'],
             $this->composesMemberLifecycleEmailCopy->cryptoInvestmentMatured(
+                $settlement['user'],
                 $cryptoInvestment,
                 $settlement['payout_amount_usd'],
             ),

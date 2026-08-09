@@ -112,7 +112,7 @@ class DebitsUserWalletForPackageInvestment
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $user,
-            $this->composesMemberLifecycleEmailCopy->fixedInvestmentPlaced($investment),
+            $this->composesMemberLifecycleEmailCopy->fixedInvestmentPlaced($user, $investment),
         );
 
         return $investment;

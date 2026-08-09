@@ -121,6 +121,7 @@ class SettlesMaturedInvestmentPayoutToUserWallet
         $this->sendsMemberTransactionalEmail->sendCopy(
             $settlement['user'],
             $this->composesMemberLifecycleEmailCopy->fixedInvestmentMatured(
+                $settlement['user'],
                 $investment,
                 $settlement['payout_amount_usd'],
             ),

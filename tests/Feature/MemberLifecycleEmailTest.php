@@ -48,7 +48,7 @@ beforeEach(function () {
     ]);
 });
 
-it('queues a welcome email on register', function () {
+it('queues a personalized welcome email on register', function () {
     Mail::fake();
 
     $this->postJson('/api/auth/register', [
@@ -62,15 +62,22 @@ it('queues a welcome email on register', function () {
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail): bool {
         return $mail->hasTo('ada-welcome@example.com')
-            && str_contains($mail->emailSubject, 'Welcome');
+            && str_contains($mail->emailSubject, 'Ada')
+            && str_contains($mail->emailBody, 'Hi Ada,')
+            && str_contains($mail->emailBody, 'ada-welcome@example.com');
     });
 });
 
-it('queues deposit submitted and default review outcome emails', function () {
+it('queues personalized deposit submitted and review outcome emails', function () {
     Mail::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'first_name' => 'Nia',
+        'last_name' => 'Okoro',
+    ]);
     $wallet = PlatformCryptoWallet::factory()->create([
         'coingecko_asset_id' => 'bitcoin',
+        'asset_symbol' => 'BTC',
+        'network_name' => 'Bitcoin',
         'is_available_for_funding' => true,
     ]);
     $token = auth('api')->login($user);
@@ -84,7 +91,12 @@ it('queues deposit submitted and default review outcome emails', function () {
         ->assertCreated();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit received — under review';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Nia')
+            && str_contains($mail->emailBody, 'Hi Nia,')
+            && str_contains($mail->emailBody, 'BTC')
+            && str_contains($mail->emailBody, 'Bitcoin')
+            && str_contains($mail->emailBody, '$250.00');
     });
 
     $deposit = WalletDeposit::query()->firstOrFail();
@@ -95,13 +107,16 @@ it('queues deposit submitted and default review outcome emails', function () {
         ->assertSuccessful();
 
     Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit approved';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Nia')
+            && str_contains($mail->emailBody, 'Hi Nia,')
+            && str_contains($mail->emailBody, 'approved');
     });
 });
 
-it('queues withdrawal submitted email', function () {
+it('queues personalized withdrawal submitted email', function () {
     Mail::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->create(['first_name' => 'Kofi']);
     UserWallet::factory()->create([
         'user_id' => $user->id,
         'available_balance' => 1000,
@@ -121,13 +136,16 @@ it('queues withdrawal submitted email', function () {
         ->assertCreated();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Withdrawal request submitted';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Kofi')
+            && str_contains($mail->emailBody, 'Hi Kofi,')
+            && str_contains($mail->emailBody, 'bc1qexamplewithdrawaladdress0001');
     });
 });
 
-it('queues fixed investment placed and maturity emails', function () {
+it('queues personalized fixed investment placed and maturity emails', function () {
     Mail::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->create(['first_name' => 'Maya']);
     UserWallet::factory()->create([
         'user_id' => $user->id,
         'available_balance' => 5000,
@@ -149,7 +167,9 @@ it('queues fixed investment placed and maturity emails', function () {
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
         return $mail->hasTo($user->email)
-            && $mail->emailSubject === 'Investment placed — Mail Plan';
+            && str_contains($mail->emailSubject, 'Maya')
+            && str_contains($mail->emailSubject, 'Mail Plan')
+            && str_contains($mail->emailBody, 'Hi Maya,');
     });
 
     $startedAt = now()->subDays(2)->subMinute();
@@ -174,11 +194,13 @@ it('queues fixed investment placed and maturity emails', function () {
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
         return $mail->hasTo($user->email)
-            && $mail->emailSubject === 'Investment payout credited — Mail Plan';
+            && str_contains($mail->emailSubject, 'Maya')
+            && str_contains($mail->emailBody, 'Principal:')
+            && str_contains($mail->emailBody, 'Accrued return:');
     });
 });
 
-it('queues crypto investment placed and maturity emails', function () {
+it('queues personalized crypto investment placed and maturity emails', function () {
     Mail::fake();
     app(UpdatesCryptoInvestmentProgramSettings::class)->update([
         'is_enabled' => true,
@@ -192,7 +214,7 @@ it('queues crypto investment placed and maturity emails', function () {
         'supported_asset_ids' => ['bitcoin'],
     ]);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['first_name' => 'Tunde']);
     UserWallet::factory()->create([
         'user_id' => $user->id,
         'available_balance' => 10000,
@@ -208,7 +230,9 @@ it('queues crypto investment placed and maturity emails', function () {
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
         return $mail->hasTo($user->email)
-            && str_starts_with($mail->emailSubject, 'Crypto investment placed —');
+            && str_contains($mail->emailSubject, 'Tunde')
+            && str_contains($mail->emailBody, 'Hi Tunde,')
+            && str_contains($mail->emailBody, 'Entry price:');
     });
 
     app()->instance(FetchesCoinGeckoUsdAssetPrice::class, new class extends FetchesCoinGeckoUsdAssetPrice
@@ -247,13 +271,17 @@ it('queues crypto investment placed and maturity emails', function () {
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
         return $mail->hasTo($user->email)
-            && str_starts_with($mail->emailSubject, 'Crypto investment payout credited —');
+            && str_contains($mail->emailSubject, 'Tunde')
+            && str_contains($mail->emailBody, 'Final escrow payout:');
     });
 });
-it('queues referral reward email when a referred deposit is approved', function () {
+
+it('queues personalized referral reward email when a referred deposit is approved', function () {
     Mail::fake();
-    $referrer = User::factory()->create();
+    $referrer = User::factory()->create(['first_name' => 'Sam']);
     $referred = User::factory()->create([
+        'first_name' => 'Lee',
+        'last_name' => 'Chen',
         'referred_by_user_id' => $referrer->id,
     ]);
     $deposit = WalletDeposit::factory()->pendingApproval()->create([
@@ -266,15 +294,20 @@ it('queues referral reward email when a referred deposit is approved', function 
         ->postJson('/api/admin/wallet-deposits/'.$deposit->id.'/approve')
         ->assertSuccessful();
 
-    Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($referrer): bool {
-        return $mail->hasTo($referrer->email) && $mail->emailSubject === 'Referral reward credited';
+    Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($referrer, $referred): bool {
+        return $mail->hasTo($referrer->email)
+            && str_contains($mail->emailSubject, 'Sam')
+            && str_contains($mail->emailBody, 'Hi Sam,')
+            && str_contains($mail->emailBody, 'Lee Chen')
+            && str_contains($mail->emailBody, $referred->email);
     });
 });
 
-it('queues ban suspend unsuspend reactivate and promote-to-admin emails', function () {
+it('queues personalized ban suspend unsuspend reactivate and promote-to-admin emails', function () {
     Mail::fake();
     $adminToken = auth('admin')->login(Admin::factory()->create());
     $user = User::factory()->create([
+        'first_name' => 'Imani',
         'email' => 'lifecycle-member@example.com',
     ]);
 
@@ -285,7 +318,10 @@ it('queues ban suspend unsuspend reactivate and promote-to-admin emails', functi
         ->assertSuccessful();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Your account has been banned';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Imani')
+            && str_contains($mail->emailBody, 'Policy')
+            && str_contains($mail->emailBody, $user->email);
     });
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
@@ -295,7 +331,9 @@ it('queues ban suspend unsuspend reactivate and promote-to-admin emails', functi
         ->assertSuccessful();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Your account was reactivated';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Imani')
+            && str_contains($mail->emailBody, 'Cleared');
     });
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
@@ -306,7 +344,9 @@ it('queues ban suspend unsuspend reactivate and promote-to-admin emails', functi
         ->assertSuccessful();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Your account has been suspended';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Imani')
+            && str_contains($mail->emailBody, 'Cool off');
     });
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
@@ -316,10 +356,13 @@ it('queues ban suspend unsuspend reactivate and promote-to-admin emails', functi
         ->assertSuccessful();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Your account suspension was lifted';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'Imani')
+            && str_contains($mail->emailBody, 'OK');
     });
 
     $promoteUser = User::factory()->create([
+        'first_name' => 'Omar',
         'email' => 'promote-me@example.com',
     ]);
 
@@ -331,6 +374,8 @@ it('queues ban suspend unsuspend reactivate and promote-to-admin emails', functi
         ->assertCreated();
 
     Mail::assertQueued(MemberTransactionalMail::class, function (MemberTransactionalMail $mail) use ($promoteUser): bool {
-        return $mail->hasTo($promoteUser->email) && $mail->emailSubject === 'You were granted admin access';
+        return $mail->hasTo($promoteUser->email)
+            && str_contains($mail->emailSubject, 'Omar')
+            && str_contains($mail->emailBody, $promoteUser->email);
     });
 });

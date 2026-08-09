@@ -137,9 +137,12 @@ class AdminWalletDepositController extends Controller
 
         if ($wasPendingApproval) {
             $approvedDeposit->loadMissing('user');
-            $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedDeposit($approvedDeposit);
 
             if ($approvedDeposit->user !== null) {
+                $copy = $buildsWalletReviewOutcomeMemberMessage->forApprovedDeposit(
+                    $approvedDeposit->user,
+                    $approvedDeposit,
+                );
                 $notifiesMemberAboutWalletReviewOutcome->notify(
                     admin: $admin,
                     user: $approvedDeposit->user,
@@ -196,9 +199,12 @@ class AdminWalletDepositController extends Controller
 
         $declinedDeposit = $walletDeposit->fresh(['user', 'platformCryptoWallet']);
         $declinedDeposit?->loadMissing('user');
-        $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedDeposit($declinedDeposit ?? $walletDeposit);
 
         if ($declinedDeposit?->user !== null) {
+            $copy = $buildsWalletReviewOutcomeMemberMessage->forDeclinedDeposit(
+                $declinedDeposit->user,
+                $declinedDeposit,
+            );
             $notifiesMemberAboutWalletReviewOutcome->notify(
                 admin: $admin,
                 user: $declinedDeposit->user,

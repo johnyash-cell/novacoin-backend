@@ -186,7 +186,7 @@ class DebitsUserWalletForCryptoAssetInvestment
 
         $this->sendsMemberTransactionalEmail->sendCopy(
             $user,
-            $this->composesMemberLifecycleEmailCopy->cryptoInvestmentPlaced($cryptoInvestment),
+            $this->composesMemberLifecycleEmailCopy->cryptoInvestmentPlaced($user, $cryptoInvestment),
         );
 
         return $cryptoInvestment;

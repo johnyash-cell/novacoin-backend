@@ -154,7 +154,9 @@ it('approves a pending withdrawal without changing balance again', function () {
 
     expect((float) UserWallet::query()->where('user_id', $user->id)->value('available_balance'))->toBe(500.0);
     Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Withdrawal approved';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'withdrawal was approved')
+            && str_contains($mail->emailBody, 'Hi ');
     });
     $this->assertDatabaseCount('admin_notifications', 0);
 
@@ -205,7 +207,9 @@ it('notifies the member by email and in-app when admin opts in on withdrawal dec
         ->assertSuccessful();
 
     Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
-        return $mail->hasTo($user->email) && $mail->emailSubject === 'Withdrawal declined';
+        return $mail->hasTo($user->email)
+            && str_contains($mail->emailSubject, 'withdrawal was declined')
+            && str_contains($mail->emailBody, 'Hi ');
     });
     $this->assertDatabaseCount('admin_notifications', 1);
     $this->assertDatabaseHas('admin_notification_recipients', [

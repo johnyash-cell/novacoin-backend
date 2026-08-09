@@ -106,7 +106,7 @@ class WalletDepositController extends Controller
         $deposit->refresh();
         $sendsMemberTransactionalEmail->sendCopy(
             $user,
-            $composesMemberLifecycleEmailCopy->depositSubmitted($deposit),
+            $composesMemberLifecycleEmailCopy->depositSubmitted($user, $deposit),
         );
 
         return $this->successResponse(

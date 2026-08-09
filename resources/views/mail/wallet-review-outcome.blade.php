@@ -3,9 +3,10 @@
 
 # {{ $emailHeading }}
 
-{{ $emailBody }}
+{!! nl2br(e($emailBody)) !!}
 
 Thanks,<br>
 {{ config('app.name') }}
 </x-mail::message>
+
 
