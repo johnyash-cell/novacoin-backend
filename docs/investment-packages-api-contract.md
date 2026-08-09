@@ -2,7 +2,7 @@
 
 Status: **implemented (admin CRUD + member catalog / invest / holdings / daily return escrow / maturity payout)**  
 Audience: **frontend / QA** (share this file for wiring)  
-Last updated: 2026-08-09
+Last updated: 2026-08-09 (first earning = next calendar day after subscribe)
 
 **Naming:** *Investment plan* (older domain doc) ≡ *investment package* (this contract). API uses **`investment-packages`**.
 
@@ -653,7 +653,7 @@ curl -X POST "{{baseUrl}}investment-packages/1/invest" \
 | Rule | Detail |
 |------|--------|
 | Escrow | Return-only pot on the holding (`accrued_return_usd`). Does **not** change spendable wallet during the term |
-| Day 1 | Calendar date of `started_at` (app timezone) |
+| Day 1 | **Next** calendar day after `started_at` (app timezone). Subscribe day earns `$0`. Exactly `term_days` logs: `startDate+1` … `startDate+term_days` |
 | Daily amount | Flat: `expected_return_amount_usd / term_days` (2dp). Last day takes leftover cents so logs sum exactly to expected return |
 | Log | One row per day in daily-earnings; unique per investment + date |
 | Maturity | After `matures_at` and all term days logged → credit **principal + accrued return** to wallet (`investment_payout_credit`); set `payout_completed_at` and `status: ended` |

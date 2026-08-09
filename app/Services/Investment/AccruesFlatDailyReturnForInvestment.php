@@ -12,6 +12,8 @@ class AccruesFlatDailyReturnForInvestment
     /**
      * Persist missing flat daily return slices into escrow. Does not touch the spendable wallet.
      *
+     * First earning is the calendar day after started_at (not the subscribe day).
+     *
      * @return int Number of new daily earning log rows created
      */
     public function accrue(Investment $investment, ?Carbon $asOfDate = null): int
@@ -28,7 +30,9 @@ class AccruesFlatDailyReturnForInvestment
 
         $asOf = ($asOfDate ?? now())->copy()->startOfDay();
         $startDate = $investment->started_at->copy()->startOfDay();
-        $lastEarningDate = $startDate->copy()->addDays($termDays - 1);
+        // Day 1 = next calendar day after subscribe; last day = startDate + term_days.
+        $firstEarningDate = $startDate->copy()->addDay();
+        $lastEarningDate = $startDate->copy()->addDays($termDays);
         $expectedReturn = round((float) $investment->expected_return_amount_usd, 2);
         $flatDailyAmount = round($expectedReturn / $termDays, 2);
 
@@ -36,6 +40,7 @@ class AccruesFlatDailyReturnForInvestment
             $investment,
             $asOf,
             $startDate,
+            $firstEarningDate,
             $lastEarningDate,
             $termDays,
             $expectedReturn,
@@ -51,6 +56,22 @@ class AccruesFlatDailyReturnForInvestment
                 return 0;
             }
 
+            // Drop legacy same-day-as-subscribe logs from the old rule.
+            $legacySameDayDeleted = InvestmentDailyEarningLog::query()
+                ->where('investment_id', $lockedInvestment->id)
+                ->whereDate('earning_date', $startDate->toDateString())
+                ->delete();
+
+            if ($legacySameDayDeleted > 0) {
+                $recomputedAccrued = round((float) InvestmentDailyEarningLog::query()
+                    ->where('investment_id', $lockedInvestment->id)
+                    ->sum('amount_usd'), 2);
+
+                $lockedInvestment->forceFill([
+                    'accrued_return_usd' => $recomputedAccrued,
+                ])->save();
+            }
+
             $existingDates = InvestmentDailyEarningLog::query()
                 ->where('investment_id', $lockedInvestment->id)
                 ->pluck('earning_date')
@@ -58,11 +79,15 @@ class AccruesFlatDailyReturnForInvestment
                 ->all();
 
             $existingDateLookup = array_fill_keys($existingDates, true);
-            $accruedReturnUsd = round((float) $lockedInvestment->accrued_return_usd, 2);
+            $accruedReturnUsd = round((float) $lockedInvestment->fresh()->accrued_return_usd, 2);
             $createdCount = 0;
 
-            for ($dayIndex = 0; $dayIndex < $termDays; $dayIndex++) {
+            for ($dayIndex = 1; $dayIndex <= $termDays; $dayIndex++) {
                 $earningDate = $startDate->copy()->addDays($dayIndex);
+
+                if ($earningDate->lessThan($firstEarningDate)) {
+                    continue;
+                }
 
                 if ($earningDate->greaterThan($asOf) || $earningDate->greaterThan($lastEarningDate)) {
                     break;
@@ -75,7 +100,7 @@ class AccruesFlatDailyReturnForInvestment
                 }
 
                 // Last term day absorbs leftover cents so logs sum to expected return exactly.
-                $amountUsd = $dayIndex === ($termDays - 1)
+                $amountUsd = $dayIndex === $termDays
                     ? round($expectedReturn - $accruedReturnUsd, 2)
                     : $flatDailyAmount;
 
@@ -97,7 +122,7 @@ class AccruesFlatDailyReturnForInvestment
                 $createdCount++;
             }
 
-            if ($createdCount > 0) {
+            if ($createdCount > 0 || $legacySameDayDeleted > 0) {
                 $lockedInvestment->forceFill([
                     'accrued_return_usd' => $accruedReturnUsd,
                 ])->save();
