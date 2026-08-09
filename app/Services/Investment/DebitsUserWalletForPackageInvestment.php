@@ -9,6 +9,8 @@ use App\Models\InvestmentPackage;
 use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\ResolvesUserWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,11 +19,13 @@ class DebitsUserWalletForPackageInvestment
 {
     public function __construct(
         private ResolvesUserWallet $resolvesUserWallet,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     public function invest(User $user, InvestmentPackage $investmentPackage, float $amountUsd): Investment
     {
-        return DB::transaction(function () use ($user, $investmentPackage, $amountUsd): Investment {
+        $investment = DB::transaction(function () use ($user, $investmentPackage, $amountUsd): Investment {
             /** @var InvestmentPackage $lockedPackage */
             $lockedPackage = InvestmentPackage::query()
                 ->whereKey($investmentPackage->id)
@@ -105,5 +109,12 @@ class DebitsUserWalletForPackageInvestment
 
             return $investment->fresh(['investmentPackage']) ?? $investment;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $this->composesMemberLifecycleEmailCopy->fixedInvestmentPlaced($investment),
+        );
+
+        return $investment;
     }
 }

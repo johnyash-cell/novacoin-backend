@@ -153,7 +153,9 @@ it('approves a pending withdrawal without changing balance again', function () {
         ->assertJsonPath('data.outbound_transaction_reference', 'btc-txid-abc123');
 
     expect((float) UserWallet::query()->where('user_id', $user->id)->value('available_balance'))->toBe(500.0);
-    Mail::assertNothingQueued();
+    Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
+        return $mail->hasTo($user->email) && $mail->emailSubject === 'Withdrawal approved';
+    });
     $this->assertDatabaseCount('admin_notifications', 0);
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
@@ -162,6 +164,26 @@ it('approves a pending withdrawal without changing balance again', function () {
         ->assertJsonPath('data.status', WalletWithdrawalStatus::Approved->value);
 
     expect((float) UserWallet::query()->where('user_id', $user->id)->value('available_balance'))->toBe(500.0);
+});
+
+it('skips withdrawal review email when admin opts out', function () {
+    Mail::fake();
+    $user = User::factory()->create();
+    fundedUserWallet($user, 500);
+    $withdrawal = WalletWithdrawal::factory()->pendingApproval()->create([
+        'user_id' => $user->id,
+        'usd_amount' => 500,
+    ]);
+    $adminToken = withdrawalAdminToken();
+
+    $this->withHeader('Authorization', 'Bearer '.$adminToken)
+        ->postJson('/api/admin/wallet-withdrawals/'.$withdrawal->id.'/approve', [
+            'outbound_transaction_reference' => 'btc-txid-opt-out',
+            'send_email' => false,
+        ])
+        ->assertSuccessful();
+
+    Mail::assertNothingQueued();
 });
 
 it('notifies the member by email and in-app when admin opts in on withdrawal decline', function () {

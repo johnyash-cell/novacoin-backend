@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Services\Auth\GoogleUserAuthenticationService;
 use App\Services\Auth\RecordsAuthenticationLoginAttempt;
 use App\Services\Auth\ResolvesUserAccountAccessRestrictionMessage;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Referral\AttachesReferrerFromReferralCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +27,8 @@ class UserAuthController extends Controller
     public function register(
         RegisterUserRequest $request,
         AttachesReferrerFromReferralCode $attachesReferrerFromReferralCode,
+        ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ): JsonResponse {
         $validated = $request->validated();
         $referralCode = $validated['referral_code'] ?? null;
@@ -40,6 +44,11 @@ class UserAuthController extends Controller
 
             return $user->fresh() ?? $user;
         });
+
+        $sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $composesMemberLifecycleEmailCopy->welcome($user),
+        );
 
         $token = Auth::guard('api')->login($user);
 

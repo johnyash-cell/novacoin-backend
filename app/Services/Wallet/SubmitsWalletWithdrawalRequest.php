@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
 use App\Models\WalletWithdrawal;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -18,6 +20,8 @@ class SubmitsWalletWithdrawalRequest
     public function __construct(
         private ResolvesUserWallet $resolvesUserWallet,
         private FetchesCoinGeckoUsdAssetPrice $fetchesCoinGeckoUsdAssetPrice,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     public function submit(
@@ -26,7 +30,7 @@ class SubmitsWalletWithdrawalRequest
         int $platformCryptoWalletId,
         string $destinationWalletAddress,
     ): WalletWithdrawal {
-        return DB::transaction(function () use ($user, $usdAmount, $platformCryptoWalletId, $destinationWalletAddress): WalletWithdrawal {
+        $withdrawal = DB::transaction(function () use ($user, $usdAmount, $platformCryptoWalletId, $destinationWalletAddress): WalletWithdrawal {
             /** @var PlatformCryptoWallet|null $platformCryptoWallet */
             $platformCryptoWallet = PlatformCryptoWallet::query()
                 ->availableForWithdrawal()
@@ -95,5 +99,12 @@ class SubmitsWalletWithdrawalRequest
 
             return $withdrawal->fresh(['platformCryptoWallet']) ?? $withdrawal;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $this->composesMemberLifecycleEmailCopy->withdrawalSubmitted($withdrawal),
+        );
+
+        return $withdrawal;
     }
 }

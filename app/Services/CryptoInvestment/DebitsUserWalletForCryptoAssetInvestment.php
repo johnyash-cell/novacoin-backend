@@ -9,6 +9,8 @@ use App\Models\CryptoInvestment;
 use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\FetchesCoinGeckoUsdAssetPrice;
 use App\Services\Wallet\ResolvesUserWallet;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,8 @@ class DebitsUserWalletForCryptoAssetInvestment
         private CalculatesCryptoInvestmentFeeAndExposure $calculatesCryptoInvestmentFeeAndExposure,
         private FetchesCoinGeckoUsdAssetPrice $fetchesCoinGeckoUsdAssetPrice,
         private ResolvesCryptoInvestmentProgramSettings $resolvesCryptoInvestmentProgramSettings,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     public function invest(
@@ -29,7 +33,7 @@ class DebitsUserWalletForCryptoAssetInvestment
         float $amountUsd,
         string $feeChargeSource,
     ): CryptoInvestment {
-        return DB::transaction(function () use ($user, $coingeckoAssetId, $amountUsd, $feeChargeSource): CryptoInvestment {
+        $cryptoInvestment = DB::transaction(function () use ($user, $coingeckoAssetId, $amountUsd, $feeChargeSource): CryptoInvestment {
             $settings = $this->resolvesCryptoInvestmentProgramSettings;
             $settings->assertInvestingIsEnabled();
 
@@ -179,5 +183,12 @@ class DebitsUserWalletForCryptoAssetInvestment
 
             return $cryptoInvestment->fresh() ?? $cryptoInvestment;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $this->composesMemberLifecycleEmailCopy->cryptoInvestmentPlaced($cryptoInvestment),
+        );
+
+        return $cryptoInvestment;
     }
 }

@@ -9,6 +9,8 @@ use App\Models\CryptoInvestmentDailyValuation;
 use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\ResolvesUserWallet;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +19,8 @@ class SettlesMaturedCryptoInvestmentPayoutToUserWallet
     public function __construct(
         private ResolvesUserWallet $resolvesUserWallet,
         private MarksCryptoInvestmentToMarketForDay $marksCryptoInvestmentToMarketForDay,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     /**
@@ -46,7 +50,7 @@ class SettlesMaturedCryptoInvestmentPayoutToUserWallet
             return false;
         }
 
-        return (bool) DB::transaction(function () use ($cryptoInvestment): bool {
+        $settlement = DB::transaction(function () use ($cryptoInvestment): ?array {
             /** @var CryptoInvestment $lockedInvestment */
             $lockedInvestment = CryptoInvestment::query()
                 ->whereKey($cryptoInvestment->id)
@@ -54,17 +58,17 @@ class SettlesMaturedCryptoInvestmentPayoutToUserWallet
                 ->firstOrFail();
 
             if ($lockedInvestment->payout_completed_at !== null) {
-                return false;
+                return null;
             }
 
             if ($lockedInvestment->matures_at === null || $lockedInvestment->matures_at->isFuture()) {
-                return false;
+                return null;
             }
 
             $user = User::query()->find($lockedInvestment->user_id);
 
             if ($user === null) {
-                return false;
+                return null;
             }
 
             $payoutAmountUsd = round((float) $lockedInvestment->current_escrow_usd, 2);
@@ -100,7 +104,24 @@ class SettlesMaturedCryptoInvestmentPayoutToUserWallet
 
             $cryptoInvestment->refresh();
 
-            return true;
+            return [
+                'user' => $user,
+                'payout_amount_usd' => $payoutAmountUsd,
+            ];
         });
+
+        if ($settlement === null) {
+            return false;
+        }
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $settlement['user'],
+            $this->composesMemberLifecycleEmailCopy->cryptoInvestmentMatured(
+                $cryptoInvestment,
+                $settlement['payout_amount_usd'],
+            ),
+        );
+
+        return true;
     }
 }

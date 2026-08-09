@@ -42,7 +42,8 @@ trait ValidatesOptionalMemberNotifyFlags
 
     public function shouldSendEmail(): bool
     {
-        return (bool) ($this->validated('send_email') ?? false);
+        // Default on — money review outcomes should email unless admin opts out.
+        return (bool) ($this->validated('send_email') ?? true);
     }
 
     public function shouldSendInAppNotification(): bool

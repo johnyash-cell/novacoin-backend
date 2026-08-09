@@ -4,6 +4,8 @@ namespace App\Services\Auth;
 
 use App\Contracts\Auth\GoogleIdTokenVerifierContract;
 use App\Models\User;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Referral\AttachesReferrerFromReferralCode;
 use Illuminate\Support\Facades\DB;
 
@@ -12,6 +14,8 @@ class GoogleUserAuthenticationService
     public function __construct(
         private GoogleIdTokenVerifierContract $googleIdTokenVerifier,
         private AttachesReferrerFromReferralCode $attachesReferrerFromReferralCode,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     public function authenticateWithIdToken(string $idToken, ?string $referralCode = null): User
@@ -39,7 +43,7 @@ class GoogleUserAuthenticationService
         }
 
         // Create + referral attach must commit together for new Google accounts.
-        return DB::transaction(function () use ($profile, $referralCode): User {
+        $user = DB::transaction(function () use ($profile, $referralCode): User {
             $user = User::query()->create([
                 'first_name' => $profile->firstName,
                 'last_name' => $profile->lastName,
@@ -55,5 +59,12 @@ class GoogleUserAuthenticationService
 
             return $user->fresh() ?? $user;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $this->composesMemberLifecycleEmailCopy->welcome($user),
+        );
+
+        return $user;
     }
 }

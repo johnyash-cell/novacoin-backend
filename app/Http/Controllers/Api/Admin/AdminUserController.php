@@ -22,6 +22,8 @@ use App\Models\User;
 use App\Services\Admin\BuildsAdminUserProfileSummary;
 use App\Services\Admin\ManagesUserAccountRestrictionStatus;
 use App\Services\Admin\PaginatesAdminUserDirectoryListing;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -127,8 +129,12 @@ class AdminUserController extends Controller
         );
     }
 
-    public function promoteToAdmin(PromoteUserToAdminRequest $request, User $user): JsonResponse
-    {
+    public function promoteToAdmin(
+        PromoteUserToAdminRequest $request,
+        User $user,
+        ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
+    ): JsonResponse {
         if ($user->hasAdminBackofficeAccess()) {
             return $this->errorResponse(
                 message: 'This user already has backoffice admin access',
@@ -151,6 +157,11 @@ class AdminUserController extends Controller
             'password' => $request->validated('password'),
             'is_super_admin' => false,
         ]);
+
+        $sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $composesMemberLifecycleEmailCopy->promotedToAdmin($user),
+        );
 
         return $this->successResponse(
             message: 'User promoted to admin successfully',

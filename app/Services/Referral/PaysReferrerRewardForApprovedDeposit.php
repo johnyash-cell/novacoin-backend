@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletDeposit;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\ResolvesUserWallet;
 
 class PaysReferrerRewardForApprovedDeposit
@@ -17,6 +19,8 @@ class PaysReferrerRewardForApprovedDeposit
     public function __construct(
         private ResolvesReferralProgramSettings $resolvesReferralProgramSettings,
         private ResolvesUserWallet $resolvesUserWallet,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     /**
@@ -90,5 +94,10 @@ class PaysReferrerRewardForApprovedDeposit
             'created_by_admin_id' => $admin->id,
             'created_at' => now(),
         ]);
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $referrer,
+            $this->composesMemberLifecycleEmailCopy->referralRewardPaid($payout),
+        );
     }
 }

@@ -9,6 +9,8 @@ use App\Models\InvestmentDailyEarningLog;
 use App\Models\User;
 use App\Models\UserWallet;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\ResolvesUserWallet;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +19,8 @@ class SettlesMaturedInvestmentPayoutToUserWallet
     public function __construct(
         private ResolvesUserWallet $resolvesUserWallet,
         private AccruesFlatDailyReturnForInvestment $accruesFlatDailyReturnForInvestment,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     /**
@@ -47,7 +51,7 @@ class SettlesMaturedInvestmentPayoutToUserWallet
             return false;
         }
 
-        return (bool) DB::transaction(function () use ($investment): bool {
+        $settlement = DB::transaction(function () use ($investment): ?array {
             /** @var Investment $lockedInvestment */
             $lockedInvestment = Investment::query()
                 ->whereKey($investment->id)
@@ -55,17 +59,17 @@ class SettlesMaturedInvestmentPayoutToUserWallet
                 ->firstOrFail();
 
             if ($lockedInvestment->payout_completed_at !== null) {
-                return false;
+                return null;
             }
 
             if ($lockedInvestment->matures_at === null || $lockedInvestment->matures_at->isFuture()) {
-                return false;
+                return null;
             }
 
             $user = User::query()->find($lockedInvestment->user_id);
 
             if ($user === null) {
-                return false;
+                return null;
             }
 
             $payoutAmountUsd = round(
@@ -104,7 +108,24 @@ class SettlesMaturedInvestmentPayoutToUserWallet
 
             $investment->refresh();
 
-            return true;
+            return [
+                'user' => $user,
+                'payout_amount_usd' => $payoutAmountUsd,
+            ];
         });
+
+        if ($settlement === null) {
+            return false;
+        }
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $settlement['user'],
+            $this->composesMemberLifecycleEmailCopy->fixedInvestmentMatured(
+                $investment,
+                $settlement['payout_amount_usd'],
+            ),
+        );
+
+        return true;
     }
 }

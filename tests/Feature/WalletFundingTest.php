@@ -131,7 +131,9 @@ it('approves a deposit and credits the usd amount once', function () {
         'wallet_deposit_id' => $deposit->id,
         'amount' => 1000,
     ]);
-    Mail::assertNothingQueued();
+    Mail::assertQueued(WalletReviewOutcomeMail::class, function (WalletReviewOutcomeMail $mail) use ($user): bool {
+        return $mail->hasTo($user->email) && $mail->emailSubject === 'Deposit approved';
+    });
     $this->assertDatabaseCount('admin_notifications', 0);
 
     $this->withHeader('Authorization', 'Bearer '.$adminToken)
@@ -140,6 +142,24 @@ it('approves a deposit and credits the usd amount once', function () {
 
     expect((float) UserWallet::query()->where('user_id', $user->id)->value('available_balance'))->toBe(1000.0);
     expect(WalletLedgerEntry::query()->where('wallet_deposit_id', $deposit->id)->count())->toBe(1);
+});
+
+it('skips deposit review email when admin opts out', function () {
+    Mail::fake();
+    $user = User::factory()->create();
+    $deposit = WalletDeposit::factory()->pendingApproval()->create([
+        'user_id' => $user->id,
+        'usd_amount' => 1000,
+    ]);
+    $adminToken = fundingAdminToken();
+
+    $this->withHeader('Authorization', 'Bearer '.$adminToken)
+        ->postJson('/api/admin/wallet-deposits/'.$deposit->id.'/approve', [
+            'send_email' => false,
+        ])
+        ->assertSuccessful();
+
+    Mail::assertNothingQueued();
 });
 
 it('notifies the member by email and in-app when admin opts in on deposit approve', function () {

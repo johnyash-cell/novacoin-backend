@@ -12,6 +12,8 @@ use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\PlatformCryptoWallet;
 use App\Models\User;
 use App\Models\WalletDeposit;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use App\Services\Wallet\FetchesCoinGeckoUsdAssetPrice;
 use App\Services\Wallet\StoresWalletDepositProofImage;
 use Illuminate\Http\JsonResponse;
@@ -63,6 +65,8 @@ class WalletDepositController extends Controller
         StoreWalletDepositRequest $request,
         FetchesCoinGeckoUsdAssetPrice $fetchesCoinGeckoUsdAssetPrice,
         StoresWalletDepositProofImage $storesWalletDepositProofImage,
+        ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ): JsonResponse {
         /** @var User $user */
         $user = Auth::guard('api')->user();
@@ -98,6 +102,12 @@ class WalletDepositController extends Controller
             'proof_image_path' => $proofPath,
             'status' => WalletDepositStatus::PendingApproval->value,
         ]);
+
+        $deposit->refresh();
+        $sendsMemberTransactionalEmail->sendCopy(
+            $user,
+            $composesMemberLifecycleEmailCopy->depositSubmitted($deposit),
+        );
 
         return $this->successResponse(
             message: 'Wallet deposit submitted successfully',

@@ -6,6 +6,8 @@ use App\Enums\UserAccountRestrictionLogAction;
 use App\Enums\UserAccountStatus;
 use App\Models\Admin;
 use App\Models\User;
+use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
+use App\Services\Mail\SendsMemberTransactionalEmail;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -14,6 +16,8 @@ class ManagesUserAccountRestrictionStatus
 {
     public function __construct(
         private RecordsUserAccountRestrictionLog $recordsUserAccountRestrictionLog,
+        private ComposesMemberLifecycleEmailCopy $composesMemberLifecycleEmailCopy,
+        private SendsMemberTransactionalEmail $sendsMemberTransactionalEmail,
     ) {}
 
     public function ban(User $user, Admin $admin, ?string $reason = null): User
@@ -22,7 +26,7 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('This user account is already banned');
         }
 
-        return DB::transaction(function () use ($user, $admin, $reason): User {
+        $bannedUser = DB::transaction(function () use ($user, $admin, $reason): User {
             $previousStatus = (string) ($user->account_status ?? UserAccountStatus::Active->value);
 
             $user->forceFill([
@@ -44,6 +48,13 @@ class ManagesUserAccountRestrictionStatus
 
             return $user->fresh() ?? $user;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $bannedUser,
+            $this->composesMemberLifecycleEmailCopy->accountBanned(),
+        );
+
+        return $bannedUser;
     }
 
     public function suspend(
@@ -56,7 +67,7 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Suspension end time must be in the future');
         }
 
-        return DB::transaction(function () use ($user, $admin, $suspendedUntil, $reason): User {
+        $suspendedUser = DB::transaction(function () use ($user, $admin, $suspendedUntil, $reason): User {
             $previousStatus = (string) ($user->account_status ?? UserAccountStatus::Active->value);
 
             $user->forceFill([
@@ -79,6 +90,15 @@ class ManagesUserAccountRestrictionStatus
 
             return $user->fresh() ?? $user;
         });
+
+        $untilLabel = $suspendedUser->suspended_until?->toDayDateTimeString();
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $suspendedUser,
+            $this->composesMemberLifecycleEmailCopy->accountSuspended($untilLabel),
+        );
+
+        return $suspendedUser;
     }
 
     public function unsuspend(User $user, Admin $admin, ?string $reason = null): User
@@ -87,7 +107,7 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Only suspended user accounts can be unsuspended');
         }
 
-        return DB::transaction(function () use ($user, $admin, $reason): User {
+        $unsuspendedUser = DB::transaction(function () use ($user, $admin, $reason): User {
             $previousStatus = (string) $user->account_status;
 
             $user->forceFill([
@@ -109,6 +129,13 @@ class ManagesUserAccountRestrictionStatus
 
             return $user->fresh() ?? $user;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $unsuspendedUser,
+            $this->composesMemberLifecycleEmailCopy->accountUnsuspended(),
+        );
+
+        return $unsuspendedUser;
     }
 
     public function reactivate(User $user, Admin $admin, ?string $reason = null): User
@@ -117,7 +144,7 @@ class ManagesUserAccountRestrictionStatus
             throw new RuntimeException('Only banned user accounts can be reactivated');
         }
 
-        return DB::transaction(function () use ($user, $admin, $reason): User {
+        $reactivatedUser = DB::transaction(function () use ($user, $admin, $reason): User {
             $previousStatus = (string) $user->account_status;
 
             $user->forceFill([
@@ -139,5 +166,12 @@ class ManagesUserAccountRestrictionStatus
 
             return $user->fresh() ?? $user;
         });
+
+        $this->sendsMemberTransactionalEmail->sendCopy(
+            $reactivatedUser,
+            $this->composesMemberLifecycleEmailCopy->accountReactivated(),
+        );
+
+        return $reactivatedUser;
     }
 }
