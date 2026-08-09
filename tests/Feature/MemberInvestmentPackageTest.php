@@ -222,11 +222,24 @@ it('shows a single investment only for the owning member', function () {
 });
 
 it('ends due investments via scheduled command', function () {
-    $dueInvestment = Investment::factory()->dueToEnd()->create();
+    $startedAt = now()->subDays(3)->subMinute();
+    $dueInvestment = Investment::factory()->create([
+        'term_days' => 3,
+        'amount_usd' => 100,
+        'expected_return_amount_usd' => 10,
+        'expected_payout_amount_usd' => 110,
+        'accrued_return_usd' => 0,
+        'status' => InvestmentStatus::Active->value,
+        'started_at' => $startedAt,
+        'matures_at' => $startedAt->copy()->addDays(3),
+        'ended_at' => null,
+        'payout_completed_at' => null,
+    ]);
 
     Artisan::call('investments:end-due');
 
     expect($dueInvestment->fresh())
         ->status->toBe(InvestmentStatus::Ended->value)
-        ->ended_at->not->toBeNull();
+        ->ended_at->not->toBeNull()
+        ->payout_completed_at->not->toBeNull();
 });

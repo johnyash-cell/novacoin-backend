@@ -2,20 +2,21 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Investment;
+use App\Services\Investment\ProcessesInvestmentDailyAccrualAndMaturityPayouts;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('investments:end-due')]
-#[Description('Mark investments as ended when matures_at is due')]
+#[Description('Accrue flat daily investment returns and settle matured payouts to user wallets')]
 class EndDueInvestmentsCommand extends Command
 {
-    public function handle(): int
+    public function handle(ProcessesInvestmentDailyAccrualAndMaturityPayouts $processor): int
     {
-        $endedCount = Investment::endAllDue();
+        $result = $processor->processAll();
 
-        $this->info("Ended {$endedCount} investment(s).");
+        $this->info("Created {$result['daily_logs_created']} daily earning log(s).");
+        $this->info("Completed {$result['payouts_completed']} investment payout(s).");
 
         return self::SUCCESS;
     }

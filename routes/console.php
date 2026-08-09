@@ -9,4 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('investment-packages:expire-due')->everyMinute();
-Schedule::command('investments:end-due')->everyMinute();
+Schedule::command('investments:end-due')
+    ->everyMinute()
+    ->withoutOverlapping();

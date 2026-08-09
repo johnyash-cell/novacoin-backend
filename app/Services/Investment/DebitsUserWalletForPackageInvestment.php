@@ -82,9 +82,11 @@ class DebitsUserWalletForPackageInvestment
                 'term_days' => $lockedPackage->term_days,
                 'expected_return_amount_usd' => $expectedReturnAmountUsd,
                 'expected_payout_amount_usd' => $expectedPayoutAmountUsd,
+                'accrued_return_usd' => 0,
                 'status' => InvestmentStatus::Active->value,
                 'started_at' => $startedAt,
                 'matures_at' => $maturesAt,
+                'payout_completed_at' => null,
             ]);
 
             WalletLedgerEntry::query()->create([

@@ -35,10 +35,12 @@ class InvestmentFactory extends Factory
             'term_days' => $termDays,
             'expected_return_amount_usd' => $expectedReturnAmountUsd,
             'expected_payout_amount_usd' => round($amountUsd + $expectedReturnAmountUsd, 2),
+            'accrued_return_usd' => 0,
             'status' => InvestmentStatus::Active->value,
             'started_at' => $startedAt,
             'matures_at' => $startedAt->copy()->addDays($termDays),
             'ended_at' => null,
+            'payout_completed_at' => null,
         ];
     }
 
@@ -69,6 +71,8 @@ class InvestmentFactory extends Factory
                 'started_at' => $startedAt,
                 'matures_at' => $maturesAt,
                 'ended_at' => $maturesAt,
+                'accrued_return_usd' => $attributes['expected_return_amount_usd'] ?? 0,
+                'payout_completed_at' => $maturesAt,
             ];
         });
     }

@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Enums\InvestmentStatus;
+use App\Services\Investment\ProcessesInvestmentDailyAccrualAndMaturityPayouts;
 use Database\Factories\InvestmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'user_id',
@@ -19,10 +21,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'term_days',
     'expected_return_amount_usd',
     'expected_payout_amount_usd',
+    'accrued_return_usd',
     'status',
     'started_at',
     'matures_at',
     'ended_at',
+    'payout_completed_at',
 ])]
 class Investment extends Model
 {
@@ -40,9 +44,11 @@ class Investment extends Model
             'term_days' => 'integer',
             'expected_return_amount_usd' => 'float',
             'expected_payout_amount_usd' => 'float',
+            'accrued_return_usd' => 'float',
             'started_at' => 'datetime',
             'matures_at' => 'datetime',
             'ended_at' => 'datetime',
+            'payout_completed_at' => 'datetime',
         ];
     }
 
@@ -62,11 +68,23 @@ class Investment extends Model
         return $this->belongsTo(InvestmentPackage::class);
     }
 
+    /**
+     * @return HasMany<InvestmentDailyEarningLog, $this>
+     */
+    public function dailyEarningLogs(): HasMany
+    {
+        return $this->hasMany(InvestmentDailyEarningLog::class);
+    }
+
     public function effectiveStatus(): string
     {
         $storedStatus = (string) ($this->status ?? '');
 
         if ($storedStatus === InvestmentStatus::Ended->value) {
+            return InvestmentStatus::Ended->value;
+        }
+
+        if ($this->payout_completed_at !== null) {
             return InvestmentStatus::Ended->value;
         }
 
@@ -78,37 +96,24 @@ class Investment extends Model
     }
 
     /**
-     * Persist term completion so status is durable, not virtual-only.
+     * Accrue due daily returns and settle maturity payout when eligible.
      */
     public function endIfDue(): bool
     {
-        if ($this->status === InvestmentStatus::Ended->value) {
-            return false;
-        }
+        $result = app(ProcessesInvestmentDailyAccrualAndMaturityPayouts::class)
+            ->processInvestment($this);
 
-        if ($this->matures_at === null || $this->matures_at->isFuture()) {
-            return false;
-        }
-
-        $this->forceFill([
-            'status' => InvestmentStatus::Ended->value,
-            'ended_at' => $this->ended_at ?? now(),
-        ])->save();
-
-        return true;
+        return $result['payouts_completed'] > 0;
     }
 
+    /**
+     * Accrue and settle all unpaid investments. Returns how many payouts completed.
+     */
     public static function endAllDue(): int
     {
-        return static::query()
-            ->where('status', InvestmentStatus::Active->value)
-            ->whereNotNull('matures_at')
-            ->where('matures_at', '<=', now())
-            ->update([
-                'status' => InvestmentStatus::Ended->value,
-                'ended_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $result = app(ProcessesInvestmentDailyAccrualAndMaturityPayouts::class)->processAll();
+
+        return $result['payouts_completed'];
     }
 
     /**
@@ -129,6 +134,7 @@ class Investment extends Model
         if ($status === InvestmentStatus::Active->value) {
             return $query
                 ->where('status', InvestmentStatus::Active->value)
+                ->whereNull('payout_completed_at')
                 ->where(function (Builder $builder): void {
                     $builder
                         ->whereNull('matures_at')
@@ -140,6 +146,7 @@ class Investment extends Model
             return $query->where(function (Builder $builder): void {
                 $builder
                     ->where('status', InvestmentStatus::Ended->value)
+                    ->orWhereNotNull('payout_completed_at')
                     ->orWhere(function (Builder $endedByTermBuilder): void {
                         $endedByTermBuilder
                             ->where('status', InvestmentStatus::Active->value)

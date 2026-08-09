@@ -66,6 +66,7 @@ Route::middleware(['auth:api', EnsureMemberAccountIsNotRestricted::class])->grou
     Route::post('investment-packages/{investment_package}/invest', [InvestmentPackageController::class, 'invest']);
 
     Route::get('investments', [InvestmentController::class, 'index']);
+    Route::get('investments/{investment}/daily-earnings', [InvestmentController::class, 'dailyEarnings']);
     Route::get('investments/{investment}', [InvestmentController::class, 'show']);
 
     Route::get('referral', [ReferralController::class, 'show']);

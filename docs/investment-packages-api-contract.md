@@ -1,12 +1,12 @@
 # Admin investment packages API (Phase B — package CRUD)
 
-Status: **implemented (admin CRUD + member catalog / invest / holdings)**  
+Status: **implemented (admin CRUD + member catalog / invest / holdings / daily return escrow / maturity payout)**  
 Audience: **frontend / QA** (share this file for wiring)  
-Last updated: 2026-08-06
+Last updated: 2026-08-09
 
 **Naming:** *Investment plan* (older domain doc) ≡ *investment package* (this contract). API uses **`investment-packages`**.
 
-**This pass:** admin package CRUD **and** member catalog, invest from wallet balance, my holdings.  
+**This pass:** admin package CRUD **and** member catalog, invest from wallet balance, my holdings, flat daily return escrow + maturity wallet payout.  
 
 **Related:** wallet funding (crypto deposit → approve → USD balance) is in [user-wallet-funding-api-contract.md](./user-wallet-funding-api-contract.md).
 
@@ -574,6 +574,7 @@ Powers member Invest screen: **Packages** tab + **My investments** tab.
 | Place investment | `POST {{baseUrl}}investment-packages/{id}/invest` |
 | My holdings list | `GET {{baseUrl}}investments` |
 | Single holding | `GET {{baseUrl}}investments/{id}` |
+| Daily earnings log | `GET {{baseUrl}}investments/{id}/daily-earnings` |
 
 All member routes require **`Authorization: Bearer {user_jwt}`**.
 
@@ -633,7 +634,11 @@ Rules:
 | `amount_usd` | Invested principal |
 | `expected_return_amount_usd` | Snapshot at invest time |
 | `expected_payout_amount_usd` | Principal + expected return |
-| `effective_status` | `active` until `matures_at` |
+| `accrued_return_usd` | Return escrow so far (string 2dp); starts at `"0.00"` |
+| `today_earning_usd` | Today’s daily log amount (string 2dp) |
+| `total_earned_return_usd` | Same as `accrued_return_usd` |
+| `payout_completed_at` | Set when principal + return credited to spendable wallet |
+| `effective_status` | `active` until `matures_at` / payout |
 | `started_at` / `matures_at` | Term window |
 
 ```bash
@@ -642,6 +647,17 @@ curl -X POST "{{baseUrl}}investment-packages/1/invest" \
   -H "Content-Type: application/json" \
   -d '{"amount_usd": 1000}'
 ```
+
+### Daily return escrow (implemented)
+
+| Rule | Detail |
+|------|--------|
+| Escrow | Return-only pot on the holding (`accrued_return_usd`). Does **not** change spendable wallet during the term |
+| Day 1 | Calendar date of `started_at` (app timezone) |
+| Daily amount | Flat: `expected_return_amount_usd / term_days` (2dp). Last day takes leftover cents so logs sum exactly to expected return |
+| Log | One row per day in daily-earnings; unique per investment + date |
+| Maturity | After `matures_at` and all term days logged → credit **principal + accrued return** to wallet (`investment_payout_credit`); set `payout_completed_at` and `status: ended` |
+| Scheduler | `investments:end-due` accrues + settles (idempotent). Member show/list also accrues for that user before respond |
 
 ### GET {{baseUrl}}investments
 
@@ -658,8 +674,27 @@ curl -X GET "{{baseUrl}}investments?status=active&page=1&per_page=10" \
 
 Owner-only. **404** `"Investment not found"` for other users' holdings.
 
+Includes escrow fields above.
+
 ```bash
 curl -X GET "{{baseUrl}}investments/1" \
+  -H "Authorization: Bearer {{userToken}}"
+```
+
+### GET {{baseUrl}}investments/{id}/daily-earnings
+
+Owner-only paginated daily log.
+
+Query: `page`, `per_page`, `sort_by=newest|oldest` (by `earning_date`; default `newest`).
+
+| Field | Notes |
+|-------|-------|
+| `earning_date` | `Y-m-d` |
+| `amount_usd` | That day’s return slice |
+| `accrued_return_after_usd` | Escrow total after this day |
+
+```bash
+curl -X GET "{{baseUrl}}investments/1/daily-earnings?page=1&per_page=10&sort_by=oldest" \
   -H "Authorization: Bearer {{userToken}}"
 ```
 
@@ -671,7 +706,6 @@ curl -X GET "{{baseUrl}}investments/1" \
 |------|-------|
 | Admin end holding early | Admin action to flip holding to `ended` |
 | Admin package members table | Needs admin list of investors per package |
-| Payout / return credit | Term end currently marks `ended` only; wallet credit TBD |
 
 ---
 
@@ -684,3 +718,4 @@ curl -X GET "{{baseUrl}}investments/1" \
 | Auto-expire | Scheduled command **+** persist-on-read safety |
 | Delete `data` | `null` |
 | Invest / holdings | Implemented — member catalog, invest, my investments |
+| Daily escrow | Flat daily return; pay principal + accrued at maturity only |
