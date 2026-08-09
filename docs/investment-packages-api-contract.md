@@ -705,7 +705,54 @@ curl -X GET "{{baseUrl}}investments/1/daily-earnings?page=1&per_page=10&sort_by=
 | Area | Notes |
 |------|-------|
 | Admin end holding early | Admin action to flip holding to `ended` |
-| Admin package members table | Needs admin list of investors per package |
+
+---
+
+## Admin package investors (implemented)
+
+Powers admin package detail → **who invested** table.
+
+| Screen area | Endpoint |
+|-------------|----------|
+| Investors list | `GET {{baseUrl}}admin/investment-packages/{id}/investments` |
+| Filter options | `GET {{baseUrl}}admin/investment-packages/{id}/investments/filter-options` |
+
+Auth: **admin JWT**.
+
+### Filter options
+
+```
+GET {{baseUrl}}admin/investment-packages/{id}/investments/filter-options
+```
+
+Structured filters only: `status` (`active` \| `ended`). **No** search in filter-options.
+
+```bash
+curl -X GET "{{baseUrl}}admin/investment-packages/1/investments/filter-options" \
+  -H "Authorization: Bearer {{adminToken}}"
+```
+
+### List
+
+```
+GET {{baseUrl}}admin/investment-packages/{id}/investments?page=1&per_page=10&sort_by=newest&status=&search=
+```
+
+| Query | Notes |
+|-------|-------|
+| `page` / `per_page` | Pagination (max 100) |
+| `sort_by` | `newest` \| `oldest` by `started_at` — default `newest` |
+| `status` | Optional `active` \| `ended` |
+| `search` | Free-text on investor email / first_name / last_name (list only) |
+
+**`meta.summary`:** `active`, `ended`, `total` for this package.
+
+**`data[]` row:** holding fields + nested `user` `{ id, first_name, last_name, email }`.
+
+```bash
+curl -X GET "{{baseUrl}}admin/investment-packages/1/investments?page=1&per_page=10&sort_by=newest" \
+  -H "Authorization: Bearer {{adminToken}}"
+```
 
 ---
 

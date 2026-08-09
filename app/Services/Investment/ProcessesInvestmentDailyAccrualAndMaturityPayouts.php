@@ -37,6 +37,18 @@ class ProcessesInvestmentDailyAccrualAndMaturityPayouts
     /**
      * @return array{daily_logs_created: int, payouts_completed: int}
      */
+    public function processForInvestmentPackage(int $investmentPackageId): array
+    {
+        return $this->processQuery(
+            Investment::query()
+                ->where('investment_package_id', $investmentPackageId)
+                ->whereNull('payout_completed_at'),
+        );
+    }
+
+    /**
+     * @return array{daily_logs_created: int, payouts_completed: int}
+     */
     public function processInvestment(Investment $investment): array
     {
         $dailyLogsCreated = $this->accruesFlatDailyReturnForInvestment->accrue($investment);

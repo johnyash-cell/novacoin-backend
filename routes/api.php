@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\AdminAuthController;
 use App\Http\Controllers\Api\Admin\AdminAuthenticationLoginLogController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminInvestmentPackageController;
+use App\Http\Controllers\Api\Admin\AdminInvestmentPackageInvestmentController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPlatformCryptoWalletController;
 use App\Http\Controllers\Api\Admin\AdminReferralRewardPayoutController;
@@ -124,6 +125,8 @@ Route::prefix('admin')->group(function (): void {
         Route::post('notifications', [AdminNotificationController::class, 'store']);
 
         Route::get('investment-packages/filter-options', [AdminInvestmentPackageController::class, 'filterOptions']);
+        Route::get('investment-packages/{investment_package}/investments/filter-options', [AdminInvestmentPackageInvestmentController::class, 'filterOptions']);
+        Route::get('investment-packages/{investment_package}/investments', [AdminInvestmentPackageInvestmentController::class, 'index']);
         Route::patch('investment-packages/{investment_package}/availability-status', [AdminInvestmentPackageController::class, 'updateAvailabilityStatus']);
         Route::patch('investment-packages/{investment_package}/featured', [AdminInvestmentPackageController::class, 'updateFeatured']);
         Route::apiResource('investment-packages', AdminInvestmentPackageController::class);
