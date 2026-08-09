@@ -107,6 +107,7 @@ Route::prefix('admin')->group(function (): void {
         Route::post('users/{user}/reactivate', [AdminUserController::class, 'reactivate']);
         Route::apiResource('users', AdminUserController::class);
         Route::post('users/{user}/promote-to-admin', [AdminUserController::class, 'promoteToAdmin']);
+        Route::post('users/{user}/remove-admin', [AdminUserController::class, 'removeAdmin']);
 
         Route::get('authentication-login-logs/filter-options', [AdminAuthenticationLoginLogController::class, 'filterOptions']);
         Route::get('authentication-login-logs', [AdminAuthenticationLoginLogController::class, 'index']);

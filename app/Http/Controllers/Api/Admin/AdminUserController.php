@@ -7,6 +7,7 @@ use App\Http\Requests\Api\Admin\BanUserRequest;
 use App\Http\Requests\Api\Admin\IndexUsersRequest;
 use App\Http\Requests\Api\Admin\PromoteUserToAdminRequest;
 use App\Http\Requests\Api\Admin\ReactivateUserRequest;
+use App\Http\Requests\Api\Admin\RemoveAdminBackofficeAccessFromUserRequest;
 use App\Http\Requests\Api\Admin\StoreUserRequest;
 use App\Http\Requests\Api\Admin\SuspendUserRequest;
 use App\Http\Requests\Api\Admin\UnsuspendUserRequest;
@@ -155,6 +156,46 @@ class AdminUserController extends Controller
             message: 'User promoted to admin successfully',
             data: (new AdminResource($admin))->resolve(),
             statusCode: 201,
+        );
+    }
+
+    public function removeAdmin(
+        RemoveAdminBackofficeAccessFromUserRequest $request,
+        User $user,
+    ): JsonResponse {
+        $adminAccount = $user->adminBackofficeAccount;
+
+        if ($adminAccount === null) {
+            return $this->errorResponse(
+                message: 'This user does not have backoffice admin access',
+                statusCode: 422,
+            );
+        }
+
+        // Super admins must not be demoted through the member directory action.
+        if ($adminAccount->is_super_admin) {
+            return $this->errorResponse(
+                message: 'Super admin access cannot be removed from this screen',
+                statusCode: 422,
+            );
+        }
+
+        /** @var Admin $actingAdmin */
+        $actingAdmin = Auth::guard('admin')->user();
+
+        // Admins must not strip their own backoffice access mid-session.
+        if (strcasecmp((string) $actingAdmin->email, (string) $adminAccount->email) === 0) {
+            return $this->errorResponse(
+                message: 'You cannot remove your own admin access',
+                statusCode: 422,
+            );
+        }
+
+        $adminAccount->delete();
+
+        return $this->successResponse(
+            message: 'Admin access removed successfully',
+            data: (new AdminUserResource($user->fresh()->load('adminBackofficeAccount')))->resolve(),
         );
     }
 
