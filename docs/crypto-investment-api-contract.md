@@ -94,6 +94,7 @@ curl -X PUT "{{baseUrl}}admin/crypto-investment-settings" \
 |----|----------|
 | Settings (copy / disabled) | `GET {{baseUrl}}crypto-investment-settings` |
 | Coin catalog + market UI | `GET {{baseUrl}}crypto-investment-assets` |
+| Coin price chart history | `GET {{baseUrl}}crypto-investment-assets/{coingecko_asset_id}/price-history?range=` |
 | Quote | `GET {{baseUrl}}crypto-investment-assets/{coingecko_asset_id}/invest-quote?amount_usd=&fee_charge_source=` |
 | Invest | `POST {{baseUrl}}crypto-investment-assets/{coingecko_asset_id}/invest` |
 | My holdings | `GET {{baseUrl}}crypto-investments` |
@@ -130,6 +131,37 @@ Also on `data`: `is_enabled`, `term_days`, min/max, fee, max-loss settings.
 ```
 
 Partial CG failure → null change/image (and price fallback via simple price when possible); whole catalog still **200**.
+
+### Price history (`GET crypto-investment-assets/{coingecko_asset_id}/price-history`)
+
+Member chart time-series. Backend owns CoinGecko `market_chart`; SPA must not call CG.
+
+| Query | Required | Values | Default |
+|-------|----------|--------|---------|
+| `range` | no | `24h` \| `7d` \| `30d` \| `1y` | `7d` |
+
+- Coin must be in **supported** allowlist → else **422** on `coingecko_asset_id`
+- Invalid `range` → **422** on `range`
+- Chart allowed even when `is_enabled` is false (browse UX); invest still gated
+- CG miss → **200** with `points: []`
+- Cached per `(asset_id, range)` (~5 min for `24h`/`7d`, ~30 min for `30d`/`1y`; empty → ~45s)
+
+**`data`**
+
+| Field | Notes |
+|-------|--------|
+| `coingecko_asset_id` / `asset_symbol` / `asset_label` | Echo + snapshot |
+| `range` | Echo |
+| `currency` | Always `usd` |
+| `points` | Oldest → newest; `{ t` ISO-8601 UTC, `price_usd` }; capped ≤ 300 |
+
+```bash
+curl -X GET "{{baseUrl}}crypto-investment-assets/bitcoin/price-history?range=7d" \
+  -H "Authorization: Bearer {{userToken}}"
+
+curl -X GET "{{baseUrl}}crypto-investment-assets/bitcoin/price-history?range=24h" \
+  -H "Authorization: Bearer {{userToken}}"
+```
 
 ### Quote / invest
 
@@ -176,6 +208,7 @@ Daily valuation: `valuation_date`, `price_usd`, escrow before/after, `delta_usd`
 - [ ] Fixed Plans vs Crypto Plans are separate  
 - [ ] Admin = one settings page (no package CRUD)  
 - [ ] Catalog reads `price_change_percentage_24h` + `image_url` from our API  
+- [ ] Coin detail chart uses `price-history` (no browser CG)  
 - [ ] **Zero** browser calls to CoinGecko for invest/dashboard  
 - [ ] Quote refresh on amount / fee source change  
 - [ ] Holdings show PnL + daily up/down table  

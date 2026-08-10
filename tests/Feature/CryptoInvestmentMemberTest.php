@@ -74,6 +74,7 @@ function fundedCryptoAssetMember(User $user, float $balance = 10000): UserWallet
 
 it('rejects unauthenticated crypto asset routes', function () {
     $this->getJson('/api/crypto-investment-assets')->assertUnauthorized();
+    $this->getJson('/api/crypto-investment-assets/bitcoin/price-history?range=7d')->assertUnauthorized();
     $this->getJson('/api/crypto-investment-assets/bitcoin/invest-quote?amount_usd=500&fee_charge_source=from_wallet')
         ->assertUnauthorized();
     $this->postJson('/api/crypto-investment-assets/bitcoin/invest', [

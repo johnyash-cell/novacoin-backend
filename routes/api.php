@@ -77,6 +77,8 @@ Route::middleware(['auth:api', EnsureMemberAccountIsNotRestricted::class])->grou
 
     Route::get('crypto-investment-settings', [CryptoInvestmentAssetController::class, 'settings']);
     Route::get('crypto-investment-assets', [CryptoInvestmentAssetController::class, 'index']);
+    Route::get('crypto-investment-assets/{coingecko_asset_id}/price-history', [CryptoInvestmentAssetController::class, 'priceHistory'])
+        ->where('coingecko_asset_id', '[A-Za-z0-9-]+');
     Route::get('crypto-investment-assets/{coingecko_asset_id}/invest-quote', [CryptoInvestmentAssetController::class, 'investQuote'])
         ->where('coingecko_asset_id', '[A-Za-z0-9-]+');
     Route::post('crypto-investment-assets/{coingecko_asset_id}/invest', [CryptoInvestmentAssetController::class, 'invest'])

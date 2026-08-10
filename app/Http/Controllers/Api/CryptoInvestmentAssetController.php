@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CryptoAssetInvestQuoteRequest;
+use App\Http\Requests\Api\CryptoAssetPriceHistoryRequest;
 use App\Http\Requests\Api\InvestInCryptoAssetRequest;
 use App\Http\Resources\CryptoInvestmentResource;
 use App\Http\Responses\Concerns\RespondsWithApiEnvelope;
 use App\Models\User;
 use App\Services\CryptoInvestment\CalculatesCryptoInvestmentFeeAndExposure;
 use App\Services\CryptoInvestment\DebitsUserWalletForCryptoAssetInvestment;
+use App\Services\CryptoInvestment\FetchesCoinGeckoAssetPriceHistory;
 use App\Services\CryptoInvestment\FetchesCoinGeckoMarketSnapshotsForAssetIds;
 use App\Services\CryptoInvestment\ResolvesCryptoInvestmentProgramSettings;
 use App\Services\Wallet\FetchesCoinGeckoUsdAssetPrice;
@@ -76,6 +78,33 @@ class CryptoInvestmentAssetController extends Controller
                 'max_loss_enabled' => $settings['max_loss_enabled'],
                 'max_loss_percent' => $settings['max_loss_percent'],
                 'assets' => $assets,
+            ],
+        );
+    }
+
+    public function priceHistory(
+        CryptoAssetPriceHistoryRequest $request,
+        string $coingeckoAssetId,
+        ResolvesCryptoInvestmentProgramSettings $resolvesCryptoInvestmentProgramSettings,
+        FetchesCoinGeckoAssetPriceHistory $fetchesCoinGeckoAssetPriceHistory,
+    ): JsonResponse {
+        // Chart is browse UX — allowed even when investing is disabled.
+        $asset = $resolvesCryptoInvestmentProgramSettings->requireSupportedAsset($coingeckoAssetId);
+        $range = $request->priceHistoryRange();
+        $points = $fetchesCoinGeckoAssetPriceHistory->fetchPoints(
+            $asset['coingecko_asset_id'],
+            $range,
+        );
+
+        return $this->successResponse(
+            message: 'Crypto asset price history fetched successfully',
+            data: [
+                'coingecko_asset_id' => $asset['coingecko_asset_id'],
+                'asset_symbol' => $asset['asset_symbol'],
+                'asset_label' => $asset['asset_label'],
+                'range' => $range->value,
+                'currency' => 'usd',
+                'points' => $points,
             ],
         );
     }
