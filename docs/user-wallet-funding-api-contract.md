@@ -17,6 +17,7 @@ Admin configures which cryptocurrencies users may pay with (BTC, ETH, USDT, …)
 | Admin crypto wallet list / CRUD | `/admin/platform-crypto-wallets…` | Admin JWT |
 | Admin deposit review | `GET /admin/wallet-deposits` | Admin JWT |
 | Approve / decline | `POST /admin/wallet-deposits/{id}/approve\|decline` | Admin JWT |
+| Set member spendable balance | `PATCH /admin/users/{id}/wallet` | Admin JWT |
 | Available balance | `GET /wallet` | User JWT |
 | Payment methods | `GET /platform-crypto-wallets` | User JWT |
 | Live quote | `GET /wallet/deposit-quote` | User JWT |
@@ -298,6 +299,40 @@ curl -X POST "{{baseUrl}}admin/wallet-deposits/1/approve" \
     "send_email": true,
     "send_in_app_notification": true
   }'
+```
+
+---
+
+## Admin — set member wallet balance
+
+Status: **implemented** (2026-08-10)
+
+Absolute set of spendable USD `available_balance` from Edit member (not a delta). Profile `PATCH/PUT admin/users/{id}` stays profile-only.
+
+```http
+PATCH {{baseUrl}}admin/users/{userId}/wallet
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "available_balance": 1500.50 }
+```
+
+| Rule | Detail |
+|------|--------|
+| Body | Flat `available_balance` only — required, `>= 0`, max 2 decimals |
+| Missing user | 404 |
+| Creates wallet | Yes if member has no `user_wallets` row |
+| Unchanged value | 200, no second ledger row |
+| Ledger | `admin_balance_adjustment` with signed delta, `balance_after`, `created_by_admin_id`, previous→current in description |
+| Audit log | Structured app log: admin id, user id, previous + current balance |
+| Response | Same shape as `GET admin/users/{id}` (profile + `wallet` + totals) |
+
+```bash
+curl -X PATCH "{{baseUrl}}admin/users/5/wallet" \
+  -H "Authorization: Bearer {{adminToken}}" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"available_balance": 1500.50}'
 ```
 
 ---

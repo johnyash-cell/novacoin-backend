@@ -122,6 +122,7 @@ Route::prefix('admin')->group(function (): void {
         Route::get('users/{user}/wallet-withdrawals', [AdminWalletWithdrawalController::class, 'indexForUser']);
         Route::get('users/{user}/investments/filter-options', [AdminUserInvestmentController::class, 'filterOptions']);
         Route::get('users/{user}/investments', [AdminUserInvestmentController::class, 'index']);
+        Route::patch('users/{user}/wallet', [AdminUserController::class, 'updateWallet']);
         Route::post('users/{user}/ban', [AdminUserController::class, 'ban']);
         Route::post('users/{user}/suspend', [AdminUserController::class, 'suspend']);
         Route::post('users/{user}/unsuspend', [AdminUserController::class, 'unsuspend']);

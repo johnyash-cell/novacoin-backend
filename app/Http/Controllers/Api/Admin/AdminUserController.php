@@ -11,6 +11,7 @@ use App\Http\Requests\Api\Admin\RemoveAdminBackofficeAccessFromUserRequest;
 use App\Http\Requests\Api\Admin\StoreUserRequest;
 use App\Http\Requests\Api\Admin\SuspendUserRequest;
 use App\Http\Requests\Api\Admin\UnsuspendUserRequest;
+use App\Http\Requests\Api\Admin\UpdateAdminUserWalletRequest;
 use App\Http\Requests\Api\Admin\UpdateUserRequest;
 use App\Http\Resources\AdminDirectoryMemberResource;
 use App\Http\Resources\AdminResource;
@@ -22,6 +23,7 @@ use App\Models\User;
 use App\Services\Admin\BuildsAdminUserProfileSummary;
 use App\Services\Admin\ManagesUserAccountRestrictionStatus;
 use App\Services\Admin\PaginatesAdminUserDirectoryListing;
+use App\Services\Admin\SetsMemberWalletAvailableBalanceAbsolute;
 use App\Services\Mail\ComposesMemberLifecycleEmailCopy;
 use App\Services\Mail\SendsMemberTransactionalEmail;
 use Carbon\Carbon;
@@ -96,6 +98,32 @@ class AdminUserController extends Controller
 
         return $this->successResponse(
             message: 'User fetched successfully',
+            data: (new AdminUserProfileResource(
+                $user,
+                $buildsAdminUserProfileSummary->build($user),
+            ))->resolve(),
+        );
+    }
+
+    public function updateWallet(
+        UpdateAdminUserWalletRequest $request,
+        User $user,
+        SetsMemberWalletAvailableBalanceAbsolute $setsMemberWalletAvailableBalanceAbsolute,
+        BuildsAdminUserProfileSummary $buildsAdminUserProfileSummary,
+    ): JsonResponse {
+        /** @var Admin $admin */
+        $admin = Auth::guard('admin')->user();
+
+        $setsMemberWalletAvailableBalanceAbsolute->set(
+            user: $user,
+            admin: $admin,
+            availableBalanceUsd: (float) $request->validated('available_balance'),
+        );
+
+        $user->load('adminBackofficeAccount');
+
+        return $this->successResponse(
+            message: 'Wallet balance updated successfully',
             data: (new AdminUserProfileResource(
                 $user,
                 $buildsAdminUserProfileSummary->build($user),
