@@ -34,7 +34,7 @@ gh secret set CPANEL_SSH_HOST --repo "$REPO" --body "server367.web-hosting.com"
 gh secret set CPANEL_SSH_PORT --repo "$REPO" --body "21098"
 gh secret set CPANEL_SSH_USER --repo "$REPO" --body "novamdrw"
 gh secret set CPANEL_DEPLOY_PATH --repo "$REPO" --body "/home/novamdrw/api.novacoinsholdings.com"
-gh secret set CPANEL_PHP_BIN --repo "$REPO" --body "/opt/alt/php83/usr/bin/php"
+gh secret set CPANEL_PHP_BIN --repo "$REPO" --body "/opt/alt/php84/usr/bin/php"
 gh secret set CPANEL_SSH_PRIVATE_KEY --repo "$REPO" < "$KEY_FILE"
 
 echo "OK: CPANEL_* secrets set on $REPO"

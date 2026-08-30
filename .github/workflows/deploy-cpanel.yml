@@ -22,7 +22,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: bcmath, ctype, fileinfo, json, mbstring, openssl, pdo, pdo_mysql, tokenizer, xml
           coverage: none
           tools: composer:v2
@@ -76,10 +76,10 @@ jobs:
           CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
           CPANEL_SSH_USER: ${{ secrets.CPANEL_SSH_USER }}
           CPANEL_DEPLOY_PATH: ${{ secrets.CPANEL_DEPLOY_PATH }}
-          # CloudLinux alt-php 8.3 on this host (default `php` is 8.2 — too old for Laravel ^8.3)
+          # CloudLinux alt-php 8.4 — lockfile needs PHP >=8.4.1 (Symfony 8)
           CPANEL_PHP_BIN: ${{ secrets.CPANEL_PHP_BIN }}
         run: |
-          PHP_BIN="${CPANEL_PHP_BIN:-/opt/alt/php83/usr/bin/php}"
+          PHP_BIN="${CPANEL_PHP_BIN:-/opt/alt/php84/usr/bin/php}"
           ssh -p "${CPANEL_SSH_PORT}" -o IdentitiesOnly=yes \
             "${CPANEL_SSH_USER}@${CPANEL_SSH_HOST}" \
             "bash -s" <<EOF
