@@ -1,0 +1,110 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cpanel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy API to cPanel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, fileinfo, json, mbstring, openssl, pdo, pdo_mysql, tokenizer, xml
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CPANEL_SSH_PRIVATE_KEY }}
+
+      - name: Add cPanel host to known_hosts
+        env:
+          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p "${CPANEL_SSH_PORT}" -H "${CPANEL_SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Rsync application to cPanel
+        env:
+          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+          CPANEL_SSH_USER: ${{ secrets.CPANEL_SSH_USER }}
+          CPANEL_DEPLOY_PATH: ${{ secrets.CPANEL_DEPLOY_PATH }}
+        run: |
+          rsync -az --delete \
+            -e "ssh -p ${CPANEL_SSH_PORT} -o IdentitiesOnly=yes" \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='node_modules/' \
+            --exclude='tests/' \
+            --exclude='.cursor/' \
+            --exclude='.claude/' \
+            --exclude='.agents/' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='storage/pail/' \
+            ./ \
+            "${CPANEL_SSH_USER}@${CPANEL_SSH_HOST}:${CPANEL_DEPLOY_PATH}/"
+
+      - name: Post-deploy artisan (no migrate)
+        env:
+          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+          CPANEL_SSH_USER: ${{ secrets.CPANEL_SSH_USER }}
+          CPANEL_DEPLOY_PATH: ${{ secrets.CPANEL_DEPLOY_PATH }}
+          # CloudLinux alt-php 8.3 on this host (default `php` is 8.2 — too old for Laravel ^8.3)
+          CPANEL_PHP_BIN: ${{ secrets.CPANEL_PHP_BIN }}
+        run: |
+          PHP_BIN="${CPANEL_PHP_BIN:-/opt/alt/php83/usr/bin/php}"
+          ssh -p "${CPANEL_SSH_PORT}" -o IdentitiesOnly=yes \
+            "${CPANEL_SSH_USER}@${CPANEL_SSH_HOST}" \
+            "bash -s" <<EOF
+          set -euo pipefail
+          cd "${CPANEL_DEPLOY_PATH}"
+          PHP_BIN='${PHP_BIN}'
+
+          if [ ! -x "\$PHP_BIN" ]; then
+            echo "ERROR: PHP binary not found: \$PHP_BIN"
+            exit 1
+          fi
+
+          if [ ! -f .env ]; then
+            echo "ERROR: .env missing on server. Create it before deploy can finish."
+            exit 1
+          fi
+
+          mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
+          chmod -R ug+rwx storage bootstrap/cache || true
+
+          "\$PHP_BIN" -v
+          "\$PHP_BIN" artisan optimize:clear
+          "\$PHP_BIN" artisan config:cache
+          "\$PHP_BIN" artisan route:cache
+          "\$PHP_BIN" artisan view:cache
+
+          echo "Deploy finished (migrate skipped — run manually when ready)."
+          EOF
