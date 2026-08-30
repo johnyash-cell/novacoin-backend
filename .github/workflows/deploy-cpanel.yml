@@ -30,19 +30,18 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
 
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.CPANEL_SSH_PRIVATE_KEY }}
-
-      - name: Add cPanel host to known_hosts
+      - name: Prepare SSH deploy key
         env:
           CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
           CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+          CPANEL_SSH_PRIVATE_KEY: ${{ secrets.CPANEL_SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          printf '%s\n' "$CPANEL_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/cpanel_deploy_key
+          chmod 600 ~/.ssh/cpanel_deploy_key
           ssh-keyscan -p "${CPANEL_SSH_PORT}" -H "${CPANEL_SSH_HOST}" >> ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/cpanel_deploy_key >/dev/null
 
       - name: Rsync application to cPanel
         env:
@@ -52,7 +51,7 @@ jobs:
           CPANEL_DEPLOY_PATH: ${{ secrets.CPANEL_DEPLOY_PATH }}
         run: |
           rsync -az --delete \
-            -e "ssh -p ${CPANEL_SSH_PORT} -o IdentitiesOnly=yes" \
+            -e "ssh -i ~/.ssh/cpanel_deploy_key -p ${CPANEL_SSH_PORT} -o IdentitiesOnly=yes -o BatchMode=yes" \
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='.env' \
@@ -80,7 +79,8 @@ jobs:
           CPANEL_PHP_BIN: ${{ secrets.CPANEL_PHP_BIN }}
         run: |
           PHP_BIN="${CPANEL_PHP_BIN:-/opt/alt/php84/usr/bin/php}"
-          ssh -p "${CPANEL_SSH_PORT}" -o IdentitiesOnly=yes \
+          ssh -i ~/.ssh/cpanel_deploy_key -p "${CPANEL_SSH_PORT}" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
             "${CPANEL_SSH_USER}@${CPANEL_SSH_HOST}" \
             "bash -s" <<EOF
           set -euo pipefail
